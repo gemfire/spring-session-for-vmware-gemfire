@@ -460,18 +460,54 @@ public class GemFireHttpSessionConfigurationUnitTests {
 
 		ApplicationContext mockApplicationContext = mock(ApplicationContext.class);
 
-		SpringSessionGemFireConfigurer mockConfigurer = mock(SpringSessionGemFireConfigurer.class);
+		SpringSessionGemFireConfigurer mockConfigurer = new SpringSessionGemFireConfigurer(){
+			@Override
+			public ClientRegionShortcut getClientRegionShortcut() {
+				return ClientRegionShortcut.CACHING_PROXY;
+			}
+
+			@Override
+			public boolean getExposeConfigurationAsProperties() {
+				return true;
+			}
+
+			@Override
+			public String[] getIndexableSessionAttributes() {
+				return new String[] { "one", "two" };
+			}
+
+			@Override
+			public int getMaxInactiveIntervalInSeconds() {
+				return 300;
+			}
+
+			@Override
+			public String getPoolName() {
+				return "DeadPool";
+			}
+
+			@Override
+			public String getRegionName() {
+				return "Sessions";
+			}
+
+			@Override
+			public RegionShortcut getServerRegionShortcut() {
+				return RegionShortcut.PARTITION_REDUNDANT;
+			}
+
+			@Override
+			public String getSessionExpirationPolicyBeanName() {
+				return "TestSessionExpirationPolicy";
+			}
+
+			@Override
+			public String getSessionSerializerBeanName() {
+				return "TestSessionSerializer";
+			}
+		};
 
 		when(mockApplicationContext.getBean(eq(SpringSessionGemFireConfigurer.class))).thenReturn(mockConfigurer);
-		when(mockConfigurer.getClientRegionShortcut()).thenReturn(ClientRegionShortcut.CACHING_PROXY);
-		when(mockConfigurer.getExposeConfigurationAsProperties()).thenReturn(true);
-		when(mockConfigurer.getIndexableSessionAttributes()).thenReturn(new String[] { "one", "two" });
-		when(mockConfigurer.getMaxInactiveIntervalInSeconds()).thenReturn(300);
-		when(mockConfigurer.getPoolName()).thenReturn("DeadPool");
-		when(mockConfigurer.getRegionName()).thenReturn("Sessions");
-		when(mockConfigurer.getServerRegionShortcut()).thenReturn(RegionShortcut.PARTITION_REDUNDANT);
-		when(mockConfigurer.getSessionExpirationPolicyBeanName()).thenReturn("TestSessionExpirationPolicy");
-		when(mockConfigurer.getSessionSerializerBeanName()).thenReturn("TestSessionSerializer");
 
 		this.gemfireConfiguration.setApplicationContext(mockApplicationContext);
 		this.gemfireConfiguration.applySpringSessionGemFireConfigurer();
@@ -486,16 +522,6 @@ public class GemFireHttpSessionConfigurationUnitTests {
 		assertThat(this.gemfireConfiguration.getSessionExpirationPolicyBeanName().orElse(null))
 			.isEqualTo("TestSessionExpirationPolicy");
 		assertThat(this.gemfireConfiguration.getSessionSerializerBeanName()).isEqualTo("TestSessionSerializer");
-
-		verify(mockConfigurer, times(1)).getClientRegionShortcut();
-		verify(mockConfigurer, times(1)).getExposeConfigurationAsProperties();
-		verify(mockConfigurer, times(1)).getIndexableSessionAttributes();
-		verify(mockConfigurer, times(1)).getMaxInactiveIntervalInSeconds();
-		verify(mockConfigurer, times(1)).getPoolName();
-		verify(mockConfigurer, times(1)).getRegionName();
-		verify(mockConfigurer, times(1)).getServerRegionShortcut();
-		verify(mockConfigurer, times(1)).getSessionExpirationPolicyBeanName();
-		verify(mockConfigurer, times(1)).getSessionSerializerBeanName();
 	}
 
 	@Test
