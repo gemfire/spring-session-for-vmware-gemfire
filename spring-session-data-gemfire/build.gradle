@@ -24,7 +24,7 @@ dependencies {
   implementation 'org.springframework:spring-jcl'
 
   api "com.vmware.gemfire:spring-data-3.0-gemfire-${gemfireBaseVersion}:${springDataGemFireVersion}"
-  api 'org.springframework.session:spring-session-core:3.1.0-RC1'
+  api 'org.springframework.session:spring-session-core:3.1.0'
 
 
   implementation 'com.google.code.findbugs:jsr305'
