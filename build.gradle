@@ -11,7 +11,7 @@ buildscript {
 //    classpath('io.spring.gradle:spring-build-conventions:0.0.38') {
 //      exclude group: "io.spring.gradle", module: "docbook-reference-plugin"
 //    }
-    classpath "org.springframework.boot:spring-boot-gradle-plugin:2.7.10"
+    classpath "org.springframework.boot:spring-boot-gradle-plugin:2.7.13"
     classpath 'com.google.api-client:google-api-client:1.28.0'
   }
 }
