@@ -13,6 +13,15 @@ project.ext.set("pomProjectLongName","Spring Session VMware GemFire")
 project.ext.set("pomProjectArtifactName","spring-session-3.0-gemfire-${gemfireBaseVersion}")
 project.ext.set("pomProjectDescription","Spring Session For VMware GemFire")
 
+java {
+  withJavadocJar()
+  withSourcesJar()
+}
+
+javadoc{
+  failOnError=false
+}
+
 facets {
   integrationTest {
     includeInCheckLifecycle = false
@@ -24,7 +33,7 @@ dependencies {
   implementation 'org.springframework:spring-jcl'
 
   api "com.vmware.gemfire:spring-data-3.0-gemfire-${gemfireBaseVersion}:${springDataGemFireVersion}"
-  api 'org.springframework.session:spring-session-core:3.0.1'
+  api 'org.springframework.session:spring-session-core:3.0.2'
 
 
   implementation 'com.google.code.findbugs:jsr305'
@@ -89,26 +98,6 @@ sourceSets {
     }
   }
 }
-
-//integrationTest{
-//  forkEvery = 1
-//  maxParallelForks = 1
-//
-//  filter {
-//    includeTestsMatching "*.*Tests"
-//    includeTestsMatching "*.*Test"
-//  }
-//}
-//
-//test {
-//  forkEvery = 1
-//  maxParallelForks = 1
-//
-//  filter {
-//    includeTestsMatching "*.*Tests"
-//    includeTestsMatching "*.*Test"
-//  }
-//}
 
 repositories {
   def additionalMavenRepoURLs = project.ext.get('additionalMavenRepoURLs')
