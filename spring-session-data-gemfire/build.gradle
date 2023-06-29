@@ -12,6 +12,15 @@ project.ext.set("pomProjectLongName","Spring Session VMware GemFire")
 project.ext.set("pomProjectArtifactName","spring-session-2.6-gemfire-${gemfireBaseVersion}")
 project.ext.set("pomProjectDescription","Spring Session For VMware GemFire")
 
+java {
+  withJavadocJar()
+  withSourcesJar()
+}
+
+javadoc{
+  failOnError=false
+}
+
 facets {
   integrationTest {
     includeInCheckLifecycle = false
