@@ -18,7 +18,8 @@ java {
   withSourcesJar()
 }
 
-javadoc{
+javadoc {
+  title = "Spring Session for VMware GemFire Java API Reference"
   failOnError=false
 }
 
