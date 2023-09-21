@@ -10,7 +10,7 @@ plugins {
 
 description = 'Spring Session for VMware GemFire'
 project.ext.set("pomProjectLongName","Spring Session VMware GemFire")
-project.ext.set("pomProjectArtifactName","spring-session-3.0-gemfire-${gemfireBaseVersion}")
+project.ext.set("pomProjectArtifactName","spring-session-3.0-gemfire-${getGemFireBaseVersion()}")
 project.ext.set("pomProjectDescription","Spring Session For VMware GemFire")
 
 java {
@@ -32,7 +32,7 @@ dependencies {
   implementation 'org.springframework:spring-context-support'
   implementation 'org.springframework:spring-jcl'
 
-  api "com.vmware.gemfire:spring-data-3.0-gemfire-${gemfireBaseVersion}:${springDataGemFireVersion}"
+  api "com.vmware.gemfire:spring-data-3.0-gemfire-${getGemFireBaseVersion()}:${springDataGemFireVersion}"
   api 'org.springframework.session:spring-session-core:3.0.2'
 
 
@@ -109,4 +109,12 @@ repositories {
               });
     }
   }
+}
+
+String getGemFireBaseVersion() {
+  def split = "${gemfireVersion}".split("\\.")
+  if (split.length < 2) {
+    throw new RuntimeException("gemfireVersion is malformed")
+  }
+  return "${split[0]}.${split[1]}"
 }
