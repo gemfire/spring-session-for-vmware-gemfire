@@ -61,7 +61,7 @@ dependencies {
 
 
   testImplementation 'edu.umd.cs.mtc:multithreadedtc'
-  testImplementation "com.vmware.gemfire:spring-test-gemfire-10.0-3.0:$springTestGemFireVersion"
+  testImplementation "com.vmware.gemfire:spring-test-gemfire-${getGemFireBaseVersion()}-3.0:$springTestGemFireVersion"
 
   testImplementation 'org.assertj:assertj-core'
   testImplementation 'junit:junit'
@@ -80,7 +80,7 @@ dependencies {
   integrationTestImplementation 'com.google.code.findbugs:jsr305'
   integrationTestImplementation 'org.springframework.shell:spring-shell'
   integrationTestImplementation 'org.springframework:spring-test'
-  integrationTestImplementation "com.vmware.gemfire:spring-test-gemfire-10.0-3.0:$springTestGemFireVersion"
+  integrationTestImplementation "com.vmware.gemfire:spring-test-gemfire-${getGemFireBaseVersion()}-3.0:$springTestGemFireVersion"
 }
 
 tasks.named("processIntegrationTestResources") {
