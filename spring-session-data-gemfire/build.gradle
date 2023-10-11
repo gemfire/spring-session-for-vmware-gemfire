@@ -19,7 +19,7 @@ java {
 }
 
 javadoc {
-  title = "Spring Session for VMware GemFire Java API Reference"
+  title = "Spring Session 2.7 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
   failOnError=false
 }
 
