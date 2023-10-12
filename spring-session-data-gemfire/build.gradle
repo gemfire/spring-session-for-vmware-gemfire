@@ -19,7 +19,7 @@ java {
 }
 
 javadoc {
-  title = "Spring Session 3.1 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
+  title = "Spring Session ${getSpringSessionBaseVersion()} for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
   failOnError=false
 }
 
@@ -34,7 +34,7 @@ dependencies {
   implementation 'org.springframework:spring-jcl'
 
   api "com.vmware.gemfire:spring-data-3.1-gemfire-${getGemFireBaseVersion()}:${springDataGemFireVersion}"
-  api 'org.springframework.session:spring-session-core:3.1.1'
+  api "org.springframework.session:spring-session-core:$springSessionVersion"
 
 
   implementation 'com.google.code.findbugs:jsr305'
@@ -114,9 +114,17 @@ repositories {
 }
 
 String getGemFireBaseVersion() {
-  def split = "${gemfireVersion}".split("\\.")
+  return getBaseVersion(gemfireVersion)
+}
+
+String getSpringSessionBaseVersion() {
+  return getBaseVersion(springSessionVersion)
+}
+
+static String getBaseVersion(String version) {
+  def split = "${version}".split("\\.")
   if (split.length < 2) {
-    throw new RuntimeException("gemfireVersion is malformed")
+    throw new RuntimeException("version '$version' is malformed")
   }
   return "${split[0]}.${split[1]}"
 }
