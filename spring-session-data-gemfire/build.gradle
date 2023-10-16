@@ -10,7 +10,7 @@ plugins {
 
 description = 'Spring Session for VMware GemFire'
 project.ext.set("pomProjectLongName","Spring Session VMware GemFire")
-project.ext.set("pomProjectArtifactName","spring-session-3.1-gemfire-${getGemFireBaseVersion()}")
+project.ext.set("pomProjectArtifactName","spring-session-3.2-gemfire-${getGemFireBaseVersion()}")
 project.ext.set("pomProjectDescription","Spring Session For VMware GemFire")
 
 java {
@@ -33,7 +33,7 @@ dependencies {
   implementation 'org.springframework:spring-context-support'
   implementation 'org.springframework:spring-jcl'
 
-  api "com.vmware.gemfire:spring-data-3.1-gemfire-${getGemFireBaseVersion()}:${springDataGemFireVersion}"
+  api "com.vmware.gemfire:spring-data-3.2-gemfire-${getGemFireBaseVersion()}:${springDataGemFireVersion}"
   api "org.springframework.session:spring-session-core:$springSessionVersion"
 
 
@@ -63,7 +63,7 @@ dependencies {
 
 
   testImplementation 'edu.umd.cs.mtc:multithreadedtc'
-  testImplementation "com.vmware.gemfire:spring-test-gemfire-${getGemFireBaseVersion()}-3.1:$springTestGemFireVersion"
+  testImplementation "com.vmware.gemfire:spring-test-gemfire-${getGemFireBaseVersion()}-3.2:$springTestGemFireVersion"
 
   testImplementation 'org.assertj:assertj-core'
   testImplementation 'junit:junit'
@@ -82,7 +82,7 @@ dependencies {
   integrationTestImplementation 'com.google.code.findbugs:jsr305'
   integrationTestImplementation 'org.springframework.shell:spring-shell'
   integrationTestImplementation 'org.springframework:spring-test'
-  integrationTestImplementation "com.vmware.gemfire:spring-test-gemfire-${getGemFireBaseVersion()}-3.1:$springTestGemFireVersion"
+  integrationTestImplementation "com.vmware.gemfire:spring-test-gemfire-${getGemFireBaseVersion()}-3.2:$springTestGemFireVersion"
 }
 
 tasks.named("processIntegrationTestResources") {
