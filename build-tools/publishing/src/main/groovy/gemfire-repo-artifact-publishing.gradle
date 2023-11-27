@@ -25,7 +25,7 @@ publishing {
           withXml {
             def providerAsElement = asElement()
             providerAsElement.insertBefore(
-                    providerAsElement.ownerDocument().createComment(license),
+                    providerAsElement.getOwnerDocument().createComment(license),
                     providerAsElement.firstChild)
           }
           scm {
