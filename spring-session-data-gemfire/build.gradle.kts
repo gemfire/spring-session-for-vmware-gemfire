@@ -37,7 +37,7 @@ java {
 
 tasks.named<Javadoc>("javadoc") {
     title =
-        "Spring Session ${getSpringSessionBaseVersion()} for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
+        "Spring Session 3.2 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
     isFailOnError = false
 }
 
