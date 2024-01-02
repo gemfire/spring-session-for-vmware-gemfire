@@ -1,5 +1,5 @@
 /*
- * Copyright (c) VMware, Inc. 2023. All rights reserved.
+ * Copyright (c) VMware, Inc. 2023-2024. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -36,6 +36,7 @@ versionCatalogUpdate {
     // keep all plugins that aren't used in the project
     keepUnusedPlugins = true
   }
+
 }
 
 tasks.withType<DependencyUpdatesTask> {

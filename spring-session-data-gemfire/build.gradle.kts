@@ -1,5 +1,5 @@
 /*
- * Copyright (c) VMware, Inc. 2023. All rights reserved.
+ * Copyright (c) VMware, Inc. 2023-2024. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -14,7 +14,6 @@ buildscript {
     }
 }
 
-//
 plugins {
     id("java-library")
     id("maven-publish")
@@ -27,23 +26,15 @@ description = "Spring Session For VMware GemFire"
 
 
 java {
-    toolchain { languageVersion = JavaLanguageVersion.of(17) }
-}
-
-java {
     withJavadocJar()
     withSourcesJar()
+    toolchain { languageVersion = JavaLanguageVersion.of(17) }
 }
 
 tasks.named<Javadoc>("javadoc") {
     title =
         "Spring Session 3.2 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
     isFailOnError = false
-}
-
-java {
-    withJavadocJar()
-    withSourcesJar()
 }
 
 publishingDetails {
@@ -100,6 +91,7 @@ dependencies {
     "integrationTestImplementation"(libs.spring.shell)
     "integrationTestImplementation"("org.springframework:spring-test")
     "integrationTestImplementation"(libs.spring.test.gemfire)
+    "integrationTestImplementation"(libs.bundles.gemfire.dependencies)
 }
 
 sourceSets {
