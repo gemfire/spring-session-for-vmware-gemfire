@@ -1,5 +1,5 @@
 /*
- * Copyright (c) VMware, Inc. 2022-2023. All rights reserved.
+ * Copyright (c) VMware, Inc. 2022-2024. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 package org.springframework.session.data.gemfire.serialization.pdx;
@@ -44,33 +44,6 @@ import org.springframework.util.FileSystemUtils;
 /**
  * Integration tests asserting that a GemFire/Geode Server does not require any Spring Session Data GemFire/Geode
  * dependencies or any transitive dependencies when PDX serialization is used.
- *
- * /Library/Java/JavaVirtualMachines/jdk1.8.0_65.jdk/Contents/Home/jre/bin/java -server -ea
- * -Dgemfire.log-level=FINEST -Dgemfire.Query.VERBOSE=false -Dspring.session.data.gemfire.cache.server.port=34095
- * -classpath
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/javax.transaction/javax.transaction-api/1.3/e006adf5cf3cca2181d16bd640ecb80148ec0fce/javax.transaction-api-1.3.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/antlr/antlr/2.7.7/83cd2cd674a217ade95a4bb83a8a14f351f48bd0/antlr-2.7.7.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/org.apache.commons/commons-lang3/3.10/e155460aaf5b464062a09c3923f089ce99128a17/commons-lang3-3.10.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/commons-io/commons-io/2.6/815893df5f31da2ece4040fe0a12fd44b577afaf/commons-io-2.6.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/commons-validator/commons-validator/1.6/e989d1e87cdd60575df0765ed5bac65c905d7908/commons-validator-1.6.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/it.unimi.dsi/fastutil/8.3.0/742307990505e3a149c9c60825ffc1db5ceef02e/fastutil-8.3.0.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-api/2.13.1/cc670f92dc77bbf4540904c3fa211b997cba00d8/log4j-api-2.13.1.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/org.apache.logging.log4j/log4j-to-slf4j/2.13.1/acb14cc60bb8f45a8ccf17cd7e94961236b3306e/log4j-to-slf4j-2.13.1.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/ch.qos.logback/logback-classic/1.2.3/7c4f3c474fb2c041d8028740440937705ebb473a/logback-classic-1.2.3.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/ch.qos.logback/logback-core/1.2.3/864344400c3d4d92dfeb0a305dc87d953677c03c/logback-core-1.2.3.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/org.apache.geode/geode-common/1.12.0/d2393d18b5f610307cb6e63c2776220fca6322ae/geode-common-1.12.0.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/org.apache.geode/geode-core/1.12.0/bfec9700eb2bee8bfa88787adc2d61605fad41c7/geode-core-1.12.0.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/org.apache.geode/geode-logging/1.12.0/2498f81fb2cb99a1602a13ef6741125a4b50bf60/geode-logging-1.12.0.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/org.apache.geode/geode-management/1.12.0/26351f8030c73019b4d00db34ac9f372bffd1e4d/geode-management-1.12.0.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/org.apache.geode/geode-membership/1.12.0/d706f7283cc8bb0b4aa4dab9ba84e1c3f81594b9/geode-membership-1.12.0.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/org.apache.geode/geode-serialization/1.12.0/26a0024437ac13bade2ce1c5b6e5857d724c02bf/geode-serialization-1.12.0.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/org.apache.geode/geode-tcp-server/1.12.0/d9b6055de9b8a9579958582b15536b38e91f4c84/geode-tcp-server-1.12.0.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/org.jgroups/jgroups/3.6.14.Final/ee11e0645462b6937625f56f42bf5e853673168/jgroups-3.6.14.Final.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/io.micrometer/micrometer-core/1.3.7/f5e87e953ffd8082c80c6415c5cdc4db5e912533/micrometer-core-1.3.7.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/com.healthmarketscience.rmiio/rmiio/2.1.2/1d35887bc716bff6e51d7530bb5abf14fc211e70/rmiio-2.1.2.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/org.apache.shiro/shiro-core/1.4.1/4825f3cd3156d197c17edca51061675e4a72260d/shiro-core-1.4.1.jar
- *  /Users/jblum/.gradle/caches/modules-2/files-2.1/org.slf4j/slf4j-api/1.7.30/b5a4b6d16ab13e34a88fae84c35cd5d68cac922c/slf4j-api-1.7.30.jar
- *  /Users/jblum/pivdev/spring-session-data-geode/spring-session-data-geode/build/classes/java/integrationTest
  *
  * @author John Blum
  * @see Test
@@ -118,8 +91,8 @@ public class SessionSerializationWithPdxRequiresNoServerConfigurationIntegration
 
 		String classpath = buildClassPathContainingJarFiles("javax.transaction-api", "antlr",
 			"commons-lang", "commons-io", "commons-validator", "fastutil", "log4j-api", "log4j-to-slf4j",
-			"geode-common", "geode-core", "geode-deployment-legacy", "geode-logging", "geode-management", "geode-membership",
-			"geode-serialization", "geode-tcp-server", "jgroups", "micrometer-core", "micrometer-commons", "rmiio",
+			"gemfire-common", "gemfire-core", "gemfire-deployment-chained-classloader", "gemfire-logging", "gemfire-management", "gemfire-membership",
+			"gemfire-serialization", "gemfire-tcp-server","gemfire-tcp-messenger", "jgroups", "micrometer-core", "micrometer-commons", "rmiio", "gemfire-version",
 			"shiro-core", "slf4j-api");
 
 		String processWorkingDirectoryPathname =

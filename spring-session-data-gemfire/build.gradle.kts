@@ -31,6 +31,10 @@ java {
     toolchain { languageVersion = JavaLanguageVersion.of(17) }
 }
 
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.add("-parameters")
+}
+
 tasks.named<Javadoc>("javadoc") {
     title =
         "Spring Session 3.2 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
@@ -72,6 +76,7 @@ dependencies {
 
     testImplementation(libs.bundles.gemfire.dependencies)
 
+    testCompileOnly(libs.jakarta.servlet.api)
     testImplementation(libs.multithreadedtc)
     testImplementation(libs.spring.test.gemfire)
     testImplementation(libs.assertj.core)
@@ -79,10 +84,10 @@ dependencies {
     testImplementation(libs.mockito.core)
     testImplementation(libs.logback.classic)
     testImplementation(libs.log4j.over.slf4j)
-    testCompileOnly(libs.jakarta.servlet.api)
     testImplementation("org.springframework:spring-test")
     testImplementation("org.springframework:spring-web")
 
+    "integrationTestImplementation"(libs.bundles.gemfire.dependencies)
     "integrationTestImplementation"(libs.junit)
     "integrationTestImplementation"(libs.assertj.core)
     "integrationTestImplementation"(libs.logback.classic)
@@ -91,7 +96,6 @@ dependencies {
     "integrationTestImplementation"(libs.spring.shell)
     "integrationTestImplementation"("org.springframework:spring-test")
     "integrationTestImplementation"(libs.spring.test.gemfire)
-    "integrationTestImplementation"(libs.bundles.gemfire.dependencies)
 }
 
 sourceSets {

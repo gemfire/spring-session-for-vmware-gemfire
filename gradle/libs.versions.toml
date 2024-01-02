@@ -30,8 +30,8 @@ webjarsTaglibVersion = "0.3"
 
 lombokVersion = "8.4"
 nebulaFacetVersion = "9.6.3"
-benManesVersions="0.50.0"
-littlerobotsVersionCatalogUpdate="0.8.3"
+benManesVersions = "0.50.0"
+littlerobotsVersionCatalogUpdate = "0.8.3"
 
 [libraries]
 
@@ -80,14 +80,16 @@ gemfire-logging = { module = "com.vmware.gemfire:gemfire-logging", version.ref =
 gemfire-cq = { module = "com.vmware.gemfire:gemfire-cq", version.ref = "gemfireVersion" }
 gemfire-wan = { module = "com.vmware.gemfire:gemfire-wan", version.ref = "gemfireVersion" }
 gemfire-gfsh = { module = "com.vmware.gemfire:gemfire-gfsh", version.ref = "gemfireVersion" }
+gemfire-version = { module = "com.vmware.gemfire:gemfire-version", version.ref = "gemfireVersion" }
 gemfire-tcp-server = { module = "com.vmware.gemfire:gemfire-tcp-server", version.ref = "gemfireVersion" }
+gemfire-tcp-messenger = { module = "com.vmware.gemfire:gemfire-tcp-messenger", version.ref = "gemfireVersion" }
 gemfire-deployment-chained-classloader = { module = "com.vmware.gemfire:gemfire-deployment-chained-classloader", version.ref = "gemfireVersion" }
 
 [bundles]
-gemfire-dependencies = ["gemfire-core", "gemfire-cq", "gemfire-logging", "gemfire-deployment-chained-classloader", "gemfire-gfsh", "gemfire-tcp-server", "gemfire-wan"]
+gemfire-dependencies = ["gemfire-core", "gemfire-cq", "gemfire-logging", "gemfire-deployment-chained-classloader", "gemfire-gfsh", "gemfire-tcp-server", "gemfire-wan", "gemfire-tcp-messenger","gemfire-version"]
 
 [plugins]
 lombok = { id = "io.freefair.lombok", version.ref = "lombokVersion" }
 nebula-facet = { id = "nebula.facet", version.ref = "nebulaFacetVersion" }
-ben-manes-versions={id="com.github.ben-manes.versions", version.ref="benManesVersions"}
-littlerobots-version-catalog-update={id="nl.littlerobots.version-catalog-update", version.ref="littlerobotsVersionCatalogUpdate"}
+ben-manes-versions = { id = "com.github.ben-manes.versions", version.ref = "benManesVersions" }
+littlerobots-version-catalog-update = { id = "nl.littlerobots.version-catalog-update", version.ref = "littlerobotsVersionCatalogUpdate" }
