@@ -1,0 +1,9 @@
+[versions]
+benManesVersionsPlugin = "0.42.0"
+kotlinGradlePluginVersion = "1.9.21"
+
+
+[libraries]
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlinGradlePluginVersion"}
+ben-manes-versions-plugin = { module = "com.github.ben-manes:gradle-versions-plugin", version.ref = "benManesVersionsPlugin" }
+
