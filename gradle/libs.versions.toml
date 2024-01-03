@@ -6,7 +6,7 @@ assertjVersion = "3.23.1"
 findbugsVersion = "3.0.2"
 logbackVersion = "1.2.13"
 log4jVersion = "2.19.0"
-javaxServletApiVersion = "4.0.4"
+jakartaServletApiVersion = "4.0.4"
 jsr305Version = "3.0.2"
 junitVersion = "4.13.2"
 mockitoVersion = "4.4.0"
@@ -39,7 +39,7 @@ spring-security-bom = { module = "org.springframework.security:spring-security-b
 antlr = { module = "antlr:antlr", version.ref = "antlrVersion" }
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertjVersion" }
 findbugs-jsr305 = { module = "com.google.code.findbugs:jsr305", version.ref = "jsr305Version" }
-javax-servlet-api = { module = "javax.servlet:javax.servlet-api", version.ref = "javaxServletApiVersion" }
+jakarta-servlet-api = { module = "jakarta.servlet:jakarta.servlet-api", version.ref = "jakartaServletApiVersion" }
 jcl-over-slf4j = { module = "org.slf4j:jcl-over-slf4j", version.ref = "slf4jVersion" }
 junit = { module = "junit:junit", version.ref = "junitVersion" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logbackVersion" }
@@ -77,8 +77,8 @@ gemfire-cq = { module = "com.vmware.gemfire:geode-cq", version.ref = "gemfireVer
 gemfire-wan = { module = "com.vmware.gemfire:geode-wan", version.ref = "gemfireVersion" }
 gemfire-gfsh = { module = "com.vmware.gemfire:geode-gfsh", version.ref = "gemfireVersion" }
 gemfire-lucene = { module = "com.vmware.gemfire:geode-lucene", version.ref = "gemfireVersion" }
-gemfire-tcp-server = { module = "com.vmware.gemfire:gemfire-tcp-server", version.ref = "gemfireVersion" }
-gemfire-deployment-legacy = { module = "com.vmware.gemfire:gemfire-deployment-legacy", version.ref = "gemfireVersion" }
+gemfire-tcp-server = { module = "com.vmware.gemfire:geode-tcp-server", version.ref = "gemfireVersion" }
+gemfire-deployment-legacy = { module = "com.vmware.gemfire:geode-deployment-legacy", version.ref = "gemfireVersion" }
 
 
 [bundles]
