@@ -37,12 +37,12 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.named<Javadoc>("javadoc") {
     title =
-        "Spring Session 3.2 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
+        "Spring Session 3.1 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
     isFailOnError = false
 }
 
 publishingDetails {
-    artifactName.set("spring-session-3.2-gemfire-${getGemFireBaseVersion()}")
+    artifactName.set("spring-session-3.1-gemfire-${getGemFireBaseVersion()}")
     longName.set("Spring Session VMware GemFire")
     description.set("Spring Session For VMware GemFire")
 }
