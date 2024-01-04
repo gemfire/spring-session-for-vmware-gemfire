@@ -67,7 +67,6 @@ dependencies {
     compileOnly(libs.bundles.gemfire.dependencies)
 
     implementation(libs.jakarta.servlet.api)
-
     testImplementation(libs.bundles.gemfire.dependencies)
 
     testImplementation(libs.multithreadedtc)
@@ -152,4 +151,24 @@ private fun getBaseVersion(version: String): String {
         throw RuntimeException("version is malformed")
     }
     return "${split[0]}.${split[1]}"
+}
+
+tasks.named<Test>("integrationTest"){
+    forkEvery = 1
+    maxParallelForks = 1
+
+    filter {
+        includeTestsMatching("*.*Tests")
+        includeTestsMatching("*.*Test")
+    }
+}
+
+tasks.named<Test>("test") {
+    forkEvery = 1
+    maxParallelForks = 1
+
+    filter {
+        includeTestsMatching("*.*Tests")
+        includeTestsMatching("*.*Test")
+    }
 }

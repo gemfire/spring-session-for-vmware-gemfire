@@ -1,5 +1,5 @@
 /*
- * Copyright (c) VMware, Inc. 2022-2023. All rights reserved.
+ * Copyright (c) VMware, Inc. 2022-2024. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 package org.springframework.session.data.gemfire.serialization.pdx;
@@ -121,7 +121,7 @@ public class SessionSerializationWithPdxRequiresNoServerConfigurationIntegration
 
 		String classpath = buildClassPathContainingJarFiles("javax.transaction-api", "antlr",
 			"commons-lang", "commons-io", "commons-validator", "fastutil", "log4j-api", "log4j-to-slf4j",
-			"geode-common", "geode-core", "geode-logging", "geode-management", "geode-membership", "geode-serialization",
+			"geode-common", "geode-core", "geode-logging", "geode-management", "geode-membership", "geode-serialization","gemfire-version","geode-deployment-legacy",
 			"geode-tcp-server", "jgroups", "micrometer-core", "rmiio", "shiro-core", "slf4j-api");
 
 		String processWorkingDirectoryPathname =
