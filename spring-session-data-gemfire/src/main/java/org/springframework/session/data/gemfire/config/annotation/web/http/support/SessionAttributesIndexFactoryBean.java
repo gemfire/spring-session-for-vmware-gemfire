@@ -1,5 +1,5 @@
 /*
- * Copyright (c) VMware, Inc. 2022-2023. All rights reserved.
+ * Copyright (c) VMware, Inc. 2022-2024. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 package org.springframework.session.data.gemfire.config.annotation.web.http.support;
@@ -50,7 +50,7 @@ public class SessionAttributesIndexFactoryBean
 	private String[] indexableSessionAttributes;
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	public void afterPropertiesSet() throws Exception {
 

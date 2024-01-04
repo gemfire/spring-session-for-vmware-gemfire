@@ -1,5 +1,5 @@
 /*
- * Copyright (c) VMware, Inc. 2022-2023. All rights reserved.
+ * Copyright (c) VMware, Inc. 2022-2024. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 package org.springframework.session.data.gemfire.web.http;
@@ -28,7 +28,7 @@ public class AbstractCookieSerializer implements CookieSerializer {
 	protected static final String NOT_IMPLEMENTED = "NOT IMPLEMENTED";
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public List<String> readCookieValues(HttpServletRequest request) {
@@ -36,7 +36,7 @@ public class AbstractCookieSerializer implements CookieSerializer {
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void writeCookieValue(CookieValue cookieValue) {

@@ -71,12 +71,10 @@ dependencies {
 
     compileOnly(libs.bundles.gemfire.dependencies)
 
-    compileOnly(libs.jakarta.servlet.api)
-    runtimeOnly(libs.jakarta.servlet.api)
+    implementation(libs.jakarta.servlet.api)
 
     testImplementation(libs.bundles.gemfire.dependencies)
 
-    testCompileOnly(libs.jakarta.servlet.api)
     testImplementation(libs.multithreadedtc)
     testImplementation(libs.spring.test.gemfire)
     testImplementation(libs.assertj.core)

@@ -81,8 +81,8 @@ gemfire-cq = { module = "com.vmware.gemfire:geode-cq", version.ref = "gemfireVer
 gemfire-wan = { module = "com.vmware.gemfire:geode-wan", version.ref = "gemfireVersion" }
 gemfire-gfsh = { module = "com.vmware.gemfire:geode-gfsh", version.ref = "gemfireVersion" }
 gemfire-lucene = { module = "com.vmware.gemfire:geode-lucene", version.ref = "gemfireVersion" }
-gemfire-tcp-server = { module = "com.vmware.gemfire:gemfire-tcp-server", version.ref = "gemfireVersion" }
-gemfire-deployment-legacy = { module = "com.vmware.gemfire:gemfire-deployment-legacy", version.ref = "gemfireVersion" }
+gemfire-tcp-server = { module = "com.vmware.gemfire:geode-tcp-server", version.ref = "gemfireVersion" }
+gemfire-deployment-legacy = { module = "com.vmware.gemfire:geode-deployment-legacy", version.ref = "gemfireVersion" }
 
 
 [bundles]
