@@ -1,5 +1,5 @@
 /*
- * Copyright (c) VMware, Inc. 2022-2023. All rights reserved.
+ * Copyright (c) VMware, Inc. 2022-2024. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 package org.springframework.session.data.gemfire.web.http;
@@ -30,7 +30,7 @@ public abstract class AbstractHttpSessionIdResolver implements HttpSessionIdReso
 	private static final String NOT_IMPLEMENTED = "NOT IMPLEMENTED";
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void setSessionId(HttpServletRequest request, HttpServletResponse response, String sessionId) {
@@ -39,7 +39,7 @@ public abstract class AbstractHttpSessionIdResolver implements HttpSessionIdReso
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public List<String> resolveSessionIds(HttpServletRequest request) {
@@ -47,7 +47,7 @@ public abstract class AbstractHttpSessionIdResolver implements HttpSessionIdReso
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void expireSession(HttpServletRequest request, HttpServletResponse response) {

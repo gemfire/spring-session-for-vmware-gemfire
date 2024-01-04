@@ -167,3 +167,23 @@ private fun getBaseVersion(version: String): String {
   }
   return "${split[0]}.${split[1]}"
 }
+
+tasks.named<Test>("integrationTest"){
+    forkEvery = 1
+    maxParallelForks = 1
+
+    filter {
+        includeTestsMatching("*.*Tests")
+        includeTestsMatching("*.*Test")
+    }
+}
+
+tasks.named<Test>("test") {
+    forkEvery = 1
+    maxParallelForks = 1
+
+    filter {
+        includeTestsMatching("*.*Tests")
+        includeTestsMatching("*.*Test")
+    }
+}
