@@ -16,6 +16,10 @@ plugins {
 
 group="com.vmware.gemfire"
 
+java {
+  toolchain { languageVersion = JavaLanguageVersion.of(8) }
+}
+
 allprojects {
   configurations.all {
     resolutionStrategy.cacheChangingModulesFor(0, "minutes")

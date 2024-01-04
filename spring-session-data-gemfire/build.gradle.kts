@@ -66,11 +66,10 @@ dependencies {
 
     compileOnly(libs.bundles.gemfire.dependencies)
 
-    runtimeOnly(libs.jakarta.servlet.api)
+    implementation(libs.jakarta.servlet.api)
 
     testImplementation(libs.bundles.gemfire.dependencies)
 
-    testCompileOnly(libs.jakarta.servlet.api)
     testImplementation(libs.multithreadedtc)
     testImplementation(libs.spring.test.gemfire)
     testImplementation(libs.assertj.core)
@@ -109,7 +108,7 @@ repositories {
         url = uri("https://commercial-repo.pivotal.io/data3/gemfire-release-repo/gemfire")
     }
     val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
-    if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
+    if (additionalMavenRepoURLs.isNotBlank() && additionalMavenRepoURLs.isNotEmpty()) {
         additionalMavenRepoURLs.split(",").forEach {
             project.repositories.maven {
                 this.url = uri(it)
