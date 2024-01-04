@@ -82,11 +82,12 @@ gemfire-wan = { module = "com.vmware.gemfire:geode-wan", version.ref = "gemfireV
 gemfire-gfsh = { module = "com.vmware.gemfire:geode-gfsh", version.ref = "gemfireVersion" }
 gemfire-lucene = { module = "com.vmware.gemfire:geode-lucene", version.ref = "gemfireVersion" }
 gemfire-tcp-server = { module = "com.vmware.gemfire:geode-tcp-server", version.ref = "gemfireVersion" }
+gemfire-version = { module = "com.vmware.gemfire:gemfire-version", version.ref = "gemfireVersion" }
 gemfire-deployment-legacy = { module = "com.vmware.gemfire:geode-deployment-legacy", version.ref = "gemfireVersion" }
 
 
 [bundles]
-gemfire-dependencies = ["gemfire-core", "gemfire-cq", "gemfire-logging", "gemfire-deployment-legacy", "gemfire-gfsh", "gemfire-tcp-server", "gemfire-wan", "gemfire-lucene"]
+gemfire-dependencies = ["gemfire-core", "gemfire-cq", "gemfire-logging", "gemfire-deployment-legacy", "gemfire-gfsh", "gemfire-tcp-server", "gemfire-wan", "gemfire-lucene","gemfire-version"]
 
 [plugins]
 lombok = { id = "io.freefair.lombok", version.ref = "lombokVersion" }
