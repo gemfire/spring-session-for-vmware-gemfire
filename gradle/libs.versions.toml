@@ -18,7 +18,7 @@ seleniumVersion = "4.5.3"
 slf4jVersion = "2.0.10"
 springSecurityVersion = "6.0.8"
 springShellVersion = "1.2.0.RELEASE"
-springVersion = "6.0.15"
+springVersion = "6.0.16"
 springBootVersion = "3.0.13"
 springDataCommonsVersion = "3.0.12"
 springSessionVersion = "3.0.4"
@@ -31,7 +31,7 @@ webjarsTaglibVersion = "0.3"
 lombokVersion = "8.4"
 nebulaFacetVersion = "9.6.3"
 benManesVersions = "0.50.0"
-littlerobotsVersionCatalogUpdate = "0.8.3"
+littlerobotsVersionCatalogUpdate = "0.8.4"
 
 [libraries]
 
