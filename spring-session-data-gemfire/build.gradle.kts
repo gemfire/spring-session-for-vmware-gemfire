@@ -118,7 +118,7 @@ repositories {
 
 tasks {
   register("copyJavadocsToBucket") {
-    dependsOn(":javadocJar")
+    dependsOn(named("javadocJar"))
     doLast {
       val storage =
         StorageOptions.newBuilder().setProjectId(project.properties["docsGCSProject"].toString()).build().getService()
