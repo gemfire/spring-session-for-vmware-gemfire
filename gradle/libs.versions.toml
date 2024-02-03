@@ -29,7 +29,7 @@ webjarsTaglibVersion = "0.3"
 lombokVersion = "8.4"
 nebulaFacetVersion = "9.6.3"
 benManesVersions = "0.50.0"
-littlerobotsVersionCatalogUpdate = "0.8.3"
+littlerobotsVersionCatalogUpdate = "0.8.4"
 
 [libraries]
 
