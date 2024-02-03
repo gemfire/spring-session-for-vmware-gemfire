@@ -49,13 +49,24 @@ fun isPatch(candidateVersion: String, currentVersion: String): Boolean {
   val candidateSplit = candidateVersion.split(".")
   val currentSplit = currentVersion.split(".")
 
-  if (candidateSplit.size == currentSplit.size && currentSplit.size == 3) {
-    if (candidateSplit[0] != currentSplit[0]) {
-      return false
-    }
-    if (candidateSplit[1] != currentSplit[1]) {
-      return false
-    }
+  val strings = listOf("rc", "alpha", "beta")
+
+  if (strings.filter { candidateVersion.uppercase().contains(it) }.toList().isNotEmpty()) {
+    return false
   }
-  return true
+
+  if (currentSplit.size == 3) {
+    if (candidateSplit.size == currentSplit.size) {
+      return if (candidateSplit[0] != currentSplit[0]) {
+        false
+      } else if (candidateSplit[1] != currentSplit[1]) {
+        false
+      } else {
+        true
+      }
+    }
+  } else {
+    return false
+  }
+  return false
 }
