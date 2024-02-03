@@ -114,7 +114,7 @@ repositories {
         }
         url = uri("https://commercial-repo.pivotal.io/data3/gemfire-release-repo/gemfire")
     }
-    val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
+    val additionalMavenRepoURLs: String by project
     if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
         additionalMavenRepoURLs.split(",").forEach {
             project.repositories.maven {
@@ -126,18 +126,12 @@ repositories {
 
 tasks {
     register("copyJavadocsToBucket") {
-        val javadocJarTask = project.tasks.named("javadocJar")
-        dependsOn(javadocJarTask)
+        dependsOn(":javadocJar")
         doLast {
-            val storage = StorageOptions.newBuilder().setProjectId(property("docsGCSProject").toString())
-                .build().getService()
-            val javadocJarFiles = javadocJarTask.get().outputs.files
-            val blobId = BlobId.of(
-                property("docsGCSBucket").toString(),
-                "${property("pomProjectArtifactName")}/${project.version}/${javadocJarFiles.singleFile.name}"
-            )
+            val storage = StorageOptions.newBuilder().setProjectId(project.properties["docsGCSProject"].toString()).build().getService()
+            val blobId = BlobId.of(project.properties["docsGCSBucket"].toString(), "${publishingDetails.artifactName.get()}/${project.version}/${named("javadocJar").get().outputs.files.singleFile.name}")
             val blobInfo = BlobInfo.newBuilder(blobId).build()
-            storage.createFrom(blobInfo, javadocJarFiles.singleFile.toPath())
+            storage.createFrom(blobInfo, named("javadocJar").get().outputs.files.singleFile.toPath())
         }
     }
     named<ProcessResources>("processIntegrationTestResources") {
