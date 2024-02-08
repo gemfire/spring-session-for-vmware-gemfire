@@ -6,6 +6,8 @@ package org.springframework.session.data.gemfire;
 
 import java.io.IOException;
 
+import com.vmware.gemfire.testcontainers.GemFireCluster;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
 
@@ -46,9 +48,23 @@ import org.springframework.test.context.junit4.SpringRunner;
 public class ConcurrentSessionOperationsUsingClientProxyRegionIntegrationTests
 		extends AbstractConcurrentSessionOperationsIntegrationTests {
 
+	private static GemFireCluster gemFireCluster;
+
 	@BeforeClass
 	public static void startGemFireServer() throws IOException {
-		startGemFireServer(GemFireServerConfiguration.class);
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+				.withCacheXml(GemFireCluster.ALL_GLOB, "/session-serializer-cache.xml")
+				.withClasspath(GemFireCluster.ALL_GLOB, System.getProperty("TEST_JAR_PATH"))
+				.withGfsh(false, "create region --type=PARTITION --name=ClusteredSpringSessions");
+
+		gemFireCluster.acceptLicense().start();
+
+		System.setProperty("spring.data.gemfire.pool.locators", String.format("localhost[%d]", gemFireCluster.getLocatorPort()));
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
 	}
 
 	@ClientCacheApplication(subscriptionEnabled = true)
@@ -58,19 +74,4 @@ public class ConcurrentSessionOperationsUsingClientProxyRegionIntegrationTests
 		sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME
 	)
 	static class GemFireClientConfiguration { }
-
-	@CacheServerApplication(name = "ConcurrentSessionOperationsUsingClientProxyRegionIntegrationTests")
-	@EnableGemFireHttpSession(
-		sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME
-	)
-	static class GemFireServerConfiguration {
-
-		public static void main(String[] args) {
-
-			AnnotationConfigApplicationContext applicationContext =
-				new AnnotationConfigApplicationContext(GemFireServerConfiguration.class);
-
-			applicationContext.registerShutdownHook();
-		}
-	}
 }

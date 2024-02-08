@@ -9,12 +9,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 
+import com.vmware.gemfire.testcontainers.GemFireCluster;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.data.gemfire.config.annotation.CacheServerApplication;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.session.Session;
 import org.springframework.session.data.gemfire.config.annotation.web.http.EnableGemFireHttpSession;
@@ -48,11 +48,23 @@ import org.springframework.test.context.junit4.SpringRunner;
 )
 public class ClientServerHttpSessionAttributesDeltaIntegrationTests extends AbstractGemFireIntegrationTests {
 
-	private static final int MAX_INACTIVE_INTERVAL_IN_SECONDS = 1;
+  private static GemFireCluster gemFireCluster;
 
 	@BeforeClass
 	public static void startGemFireServer() throws IOException {
-		startGemFireServer(SpringSessionDataGemFireServerConfiguration.class);
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+				.withCacheXml(GemFireCluster.ALL_GLOB, "/session-serializer-cache.xml")
+				.withClasspath(GemFireCluster.ALL_GLOB, System.getProperty("TEST_JAR_PATH"))
+				.withGfsh(false, "create region --type=PARTITION --name=ClusteredSpringSessions");
+
+		gemFireCluster.acceptLicense().start();
+
+		System.setProperty("spring.data.gemfire.pool.locators", String.format("localhost[%d]", gemFireCluster.getLocatorPort()));
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
 	}
 
 	@Test
@@ -106,23 +118,4 @@ public class ClientServerHttpSessionAttributesDeltaIntegrationTests extends Abst
 		sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME
 	)
 	static class SpringSessionDataGemFireClientConfiguration { }
-
-	@CacheServerApplication(
-		name = "ClientServerHttpSessionAttributesDeltaIntegrationTests",
-		logLevel = "error"
-	)
-	@EnableGemFireHttpSession(
-		maxInactiveIntervalInSeconds = MAX_INACTIVE_INTERVAL_IN_SECONDS,
-		sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME
-	)
-	static class SpringSessionDataGemFireServerConfiguration {
-
-		public static void main(String[] args) {
-
-			AnnotationConfigApplicationContext applicationContext =
-				new AnnotationConfigApplicationContext(SpringSessionDataGemFireServerConfiguration.class);
-
-			applicationContext.registerShutdownHook();
-		}
-	}
 }

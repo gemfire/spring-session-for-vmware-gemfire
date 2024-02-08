@@ -31,7 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationListener;
-import org.springframework.data.gemfire.tests.integration.ForkingClientServerIntegrationTestsSupport;
+import org.springframework.data.gemfire.tests.integration.ClientServerIntegrationTestsSupport;
 import org.springframework.data.gemfire.util.RegionUtils;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
@@ -57,14 +57,13 @@ import org.springframework.util.StringUtils;
  * @see ApplicationEvent
  * @see org.springframework.context.ApplicationContext
  * @see ApplicationListener
- * @see ForkingClientServerIntegrationTestsSupport
  * @see Session
  * @see GemFireHttpSessionConfiguration
  * @see org.springframework.session.events.AbstractSessionEvent
  * @since 1.1.0
  */
 @SuppressWarnings("unused")
-public abstract class AbstractGemFireIntegrationTests extends ForkingClientServerIntegrationTestsSupport {
+public abstract class AbstractGemFireIntegrationTests extends ClientServerIntegrationTestsSupport {
 
 	protected static final boolean DEFAULT_ENABLE_QUERY_DEBUGGING = false;
 

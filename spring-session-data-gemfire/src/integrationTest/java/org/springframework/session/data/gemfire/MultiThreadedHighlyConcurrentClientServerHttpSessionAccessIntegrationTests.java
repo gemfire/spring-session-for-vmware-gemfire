@@ -5,11 +5,7 @@
 package org.springframework.session.data.gemfire;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.DeltaCapableGemFireSession;
-import static org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.GemFireSession;
 
-import java.io.DataInput;
-import java.io.DataOutput;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -27,6 +23,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.vmware.gemfire.testcontainers.GemFireCluster;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -35,17 +33,12 @@ import org.junit.runner.RunWith;
 import org.apache.geode.cache.DataPolicy;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.context.annotation.Bean;
 import org.springframework.data.gemfire.config.annotation.CacheServerApplication;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
-import org.springframework.data.gemfire.config.annotation.EnableLocator;
 import org.springframework.data.gemfire.tests.util.IdentityHashCodeComparator;
 import org.springframework.session.Session;
 import org.springframework.session.data.gemfire.config.annotation.web.http.EnableGemFireHttpSession;
-import org.springframework.session.data.gemfire.serialization.data.AbstractDataSerializableSessionSerializer;
-import org.springframework.session.data.gemfire.serialization.data.provider.DataSerializableSessionAttributesSerializer;
-import org.springframework.session.data.gemfire.serialization.data.provider.DataSerializableSessionSerializer;
+import org.springframework.session.data.gemfire.config.annotation.web.http.GemFireHttpSessionConfiguration;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.util.ObjectUtils;
@@ -77,15 +70,26 @@ public class MultiThreadedHighlyConcurrentClientServerHttpSessionAccessIntegrati
 
 	private static final boolean SESSION_REFERENCE_CHECKING_ENABLED = false;
 
-	// TODO: Set WORKLOAD_SIZE back to 10,000 once Apache Geode fixes its concurrency and resource problems!
-	//  NOTE: This issue may be related to (from Anil Gingade): https://issues.apache.org/jira/browse/GEODE-7663
-	//  NOTE: See https://issues.apache.org/jira/browse/GEODE-7763
 	private static final int THREAD_COUNT = 180;
-	private static final int WORKLOAD_SIZE = 3000;
+	private static final int WORKLOAD_SIZE = 10000;
+
+	private static GemFireCluster gemFireCluster;
 
 	@BeforeClass
 	public static void startGemFireServer() throws IOException {
-		startGemFireServer(GemFireServerConfiguration.class, "-Xmx2g");
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+				.withCacheXml(GemFireCluster.ALL_GLOB, "/session-serializer-cache.xml")
+				.withClasspath(GemFireCluster.ALL_GLOB, System.getProperty("TEST_JAR_PATH"))
+				.withGfsh(false, "create region --type=PARTITION --name=Sessions");
+
+		gemFireCluster.acceptLicense().start();
+
+		System.setProperty("spring.data.gemfire.pool.locators", String.format("localhost[%d]", gemFireCluster.getLocatorPort()));
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
 	}
 
 	private final AtomicInteger sessionReferenceComparisonCounter = new AtomicInteger(0);
@@ -188,12 +192,7 @@ public class MultiThreadedHighlyConcurrentClientServerHttpSessionAccessIntegrati
 
 			Session session = get(this.sessionId.get());
 
-			assertThat(session).isNotNull();
-			assertThat(session.getId()).isEqualTo(this.sessionId.get());
-			assertThat(session.getLastAccessedTime()).isAfterOrEqualTo(beforeLastAccessedTime);
-			assertThat(session.getLastAccessedTime()).isBeforeOrEqualTo(Instant.now());
-			assertThat(session.isExpired()).isFalse();
-			assertUniqueSessionReference(session);
+			assertSession(session, beforeLastAccessedTime);
 
 			String attributeName = UUID.randomUUID().toString();
 			Object attributeValue = System.currentTimeMillis();
@@ -208,6 +207,15 @@ public class MultiThreadedHighlyConcurrentClientServerHttpSessionAccessIntegrati
 		};
 	}
 
+	private void assertSession(Session session, Instant beforeLastAccessedTime) {
+		assertThat(session).isNotNull();
+		assertThat(session.getId()).isEqualTo(this.sessionId.get());
+		assertThat(session.getLastAccessedTime()).isAfterOrEqualTo(beforeLastAccessedTime);
+		assertThat(session.getLastAccessedTime()).isBeforeOrEqualTo(Instant.now());
+		assertThat(session.isExpired()).isFalse();
+		assertUniqueSessionReference(session);
+	}
+
 	private Callable<Integer> newRemoveSessionAttributeTask() {
 
 		return () -> {
@@ -218,12 +226,7 @@ public class MultiThreadedHighlyConcurrentClientServerHttpSessionAccessIntegrati
 
 			Session session = get(this.sessionId.get());
 
-			assertThat(session).isNotNull();
-			assertThat(session.getId()).isEqualTo(this.sessionId.get());
-			assertThat(session.getLastAccessedTime()).isAfterOrEqualTo(beforeLastAccessedTime);
-			assertThat(session.getLastAccessedTime()).isBeforeOrEqualTo(Instant.now());
-			assertThat(session.isExpired()).isFalse();
-			assertUniqueSessionReference(session);
+			assertSession(session, beforeLastAccessedTime);
 
 			String attributeName = null;
 
@@ -261,12 +264,7 @@ public class MultiThreadedHighlyConcurrentClientServerHttpSessionAccessIntegrati
 
 			Session session = get(this.sessionId.get());
 
-			assertThat(session).isNotNull();
-			assertThat(session.getId()).isEqualTo(this.sessionId.get());
-			assertThat(session.getLastAccessedTime()).isAfterOrEqualTo(beforeLastAccessedTime);
-			assertThat(session.getLastAccessedTime()).isBeforeOrEqualTo(Instant.now());
-			assertThat(session.isExpired()).isFalse();
-			assertUniqueSessionReference(session);
+			assertSession(session, beforeLastAccessedTime);
 
 			save(session);
 
@@ -308,7 +306,6 @@ public class MultiThreadedHighlyConcurrentClientServerHttpSessionAccessIntegrati
 		int sessionAttributeCount = runSessionWorkload();
 
 		assertThat(sessionAttributeCount).isEqualTo(this.sessionAttributeNames.size());
-		//assertThat(SpyingDataSerializableSessionSerializer.getSerializationCount()).isEqualTo(1);
 
 		Session session = get(this.sessionId.get());
 
@@ -322,75 +319,7 @@ public class MultiThreadedHighlyConcurrentClientServerHttpSessionAccessIntegrati
 		clientRegionShortcut = ClientRegionShortcut.PROXY,
 		poolName = "DEFAULT",
 		regionName = "Sessions",
-		sessionSerializerBeanName = "spyingSessionSerializer"
+		sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME
 	)
-	static class GemFireClientConfiguration {
-
-		@Bean
-		SpyingDataSerializableSessionSerializer spyingSessionSerializer() {
-			return new SpyingDataSerializableSessionSerializer();
-		}
-	}
-
-	@CacheServerApplication(name = "MultiThreadedHighlyConcurrentClientServerHttpSessionAccessIntegrationTests")
-	@EnableLocator
-	@EnableGemFireHttpSession(
-		regionName = "Sessions",
-		sessionSerializerBeanName = "spyingSessionSerializer"
-	)
-	static class GemFireServerConfiguration {
-
-		public static void main(String[] args) {
-
-			AnnotationConfigApplicationContext applicationContext =
-				new AnnotationConfigApplicationContext(GemFireServerConfiguration.class);
-
-			applicationContext.registerShutdownHook();
-		}
-
-		@Bean
-		SpyingDataSerializableSessionSerializer spyingSessionSerializer() {
-			return new SpyingDataSerializableSessionSerializer();
-		}
-	}
-
-	@SuppressWarnings("rawtypes")
-	static class SpyingDataSerializableSessionSerializer
-			extends AbstractDataSerializableSessionSerializer<GemFireSession> {
-
-		private static final AtomicInteger serializationCount = new AtomicInteger(0);
-
-		private final DataSerializableSessionSerializer sessionSerializer;
-
-		static int getSerializationCount() {
-			return serializationCount.get();
-		}
-
-		public SpyingDataSerializableSessionSerializer() {
-			this.sessionSerializer = new DataSerializableSessionSerializer();
-			DataSerializableSessionAttributesSerializer.register();
-		}
-
-		@Override
-		public Class<?>[] getSupportedClasses() {
-			return this.sessionSerializer.getSupportedClasses();
-		}
-
-		@Override
-		@SuppressWarnings("unchecked")
-		public void serialize(GemFireSession session, DataOutput dataOutput) {
-
-			assertThat(session).isInstanceOf(DeltaCapableGemFireSession.class);
-			assertThat(session.hasDelta()).isTrue();
-
-			this.sessionSerializer.serialize(session, dataOutput);
-
-			serializationCount.incrementAndGet();
-		}
-
-		@Override
-		public GemFireSession deserialize(DataInput dataInput) {
-			return this.sessionSerializer.deserialize(dataInput);
-		}
-	}
+	static class GemFireClientConfiguration { }
 }

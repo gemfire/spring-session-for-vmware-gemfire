@@ -96,6 +96,7 @@ dependencies {
     "integrationTestImplementation"(libs.spring.shell)
     "integrationTestImplementation"("org.springframework:spring-test")
     "integrationTestImplementation"(libs.spring.test.gemfire)
+    "integrationTestImplementation"(libs.gemfire.testcontainers)
 }
 
 sourceSets {
@@ -137,6 +138,24 @@ tasks {
     named<ProcessResources>("processIntegrationTestResources") {
         duplicatesStrategy = DuplicatesStrategy.INCLUDE
     }
+}
+
+tasks.register<Jar>("testJar") {
+    from(sourceSets.getByName("integrationTest").output)
+    from(sourceSets.main.get().output)
+    from({ configurations.runtimeClasspath.get().filter { it.isDirectory }.plus(
+            configurations.runtimeClasspath.get().filter { !it.isDirectory }.map { zipTree(it) })})
+    archiveFileName = "testJar.jar"
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.getByName<Test>("integrationTest") {
+    dependsOn("testJar")
+    forkEvery = 1
+    maxParallelForks = 4
+    val springTestGemfireDockerImage: String by project
+    systemProperty("spring.test.gemfire.docker.image", springTestGemfireDockerImage)
+    systemProperty("TEST_JAR_PATH", tasks.getByName<Jar>("testJar").outputs.files.singleFile.absolutePath)
 }
 
 private fun getSpringSessionBaseVersion(): String {

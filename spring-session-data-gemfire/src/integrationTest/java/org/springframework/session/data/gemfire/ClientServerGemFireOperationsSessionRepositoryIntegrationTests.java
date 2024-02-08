@@ -12,7 +12,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
+import com.vmware.gemfire.testcontainers.GemFireCluster;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -24,7 +26,6 @@ import org.apache.geode.cache.RegionAttributes;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.gemfire.config.annotation.CacheServerApplication;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
@@ -81,12 +82,24 @@ public class ClientServerGemFireOperationsSessionRepositoryIntegrationTests exte
 	private static final String GEMFIRE_LOG_LEVEL = "error";
 	private static final String TEST_SESSION_REGION_NAME = "TestClientServerSessions";
 
+	private static GemFireCluster gemFireCluster;
+
 	@Autowired
 	private SessionEventListener sessionEventListener;
 
 	@BeforeClass
 	public static void startGemFireServer() throws IOException {
-		startGemFireServer(TestGemFireServerConfiguration.class);
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+				.withGfsh(false, "create region --type=PARTITION --name=" + TEST_SESSION_REGION_NAME);
+
+		gemFireCluster.acceptLicense().start();
+
+		System.setProperty("spring.data.gemfire.pool.locators", String.format("localhost[%d]", gemFireCluster.getLocatorPort()));
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
 	}
 
 	@Before
@@ -215,27 +228,6 @@ public class ClientServerGemFireOperationsSessionRepositoryIntegrationTests exte
 		@Bean
 		public SessionEventListener sessionEventListener() {
 			return new SessionEventListener();
-		}
-	}
-
-	@CacheServerApplication(
-		name = "ClientServerGemFireOperationsSessionRepositoryIntegrationTests",
-		logLevel = GEMFIRE_LOG_LEVEL
-	)
-	@EnableGemFireHttpSession(
-		regionName = TEST_SESSION_REGION_NAME,
-		maxInactiveIntervalInSeconds = MAX_INACTIVE_INTERVAL_IN_SECONDS
-	)
-	@SuppressWarnings("unused")
-	static class TestGemFireServerConfiguration {
-
-		@SuppressWarnings("resource")
-		public static void main(String[] args) {
-
-			AnnotationConfigApplicationContext applicationContext =
-				new AnnotationConfigApplicationContext(TestGemFireServerConfiguration.class);
-
-			applicationContext.registerShutdownHook();
 		}
 	}
 }
