@@ -9,6 +9,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.io.Serializable;
 
+import com.vmware.gemfire.testcontainers.GemFireCluster;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -27,12 +29,6 @@ import org.springframework.session.data.gemfire.config.annotation.web.http.Enabl
 import org.springframework.session.data.gemfire.config.annotation.web.http.GemFireHttpSessionConfiguration;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
-
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
 
 /**
  * Integration test testing the serialization of a {@link Session} object containing application domain object types
@@ -64,9 +60,23 @@ public class SessionSerializationWithDataSerializationDeltasAndJavaSerialization
 	private static final String GEMFIRE_LOG_LEVEL = "error";
 	private static final String SESSIONS_REGION_NAME = "Sessions";
 
+	private static GemFireCluster gemFireCluster;
+
 	@BeforeClass
 	public static void startGemFireServer() throws IOException {
-		startGemFireServer(GemFireServerConfiguration.class);
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+				.withCacheXml(GemFireCluster.ALL_GLOB, "/session-serializer-cache.xml")
+				.withClasspath(GemFireCluster.ALL_GLOB, System.getProperty("TEST_JAR_PATH"))
+				.withGfsh(false, "create region --type=PARTITION --name=" + SESSIONS_REGION_NAME);
+
+		gemFireCluster.acceptLicense().start();
+
+		System.setProperty("spring.data.gemfire.pool.locators", String.format("localhost[%d]", gemFireCluster.getLocatorPort()));
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
 	}
 
 	@Autowired
@@ -92,7 +102,7 @@ public class SessionSerializationWithDataSerializationDeltasAndJavaSerialization
 		assertThat(session.isExpired()).isFalse();
 		assertThat(session.getAttributeNames()).isEmpty();
 
-		Customer jonDoe = Customer.newCustomer("Jon Doe");
+		Customer jonDoe = new Customer("Jon Doe");
 
 		session.setAttribute("jonDoe", jonDoe);
 
@@ -101,7 +111,7 @@ public class SessionSerializationWithDataSerializationDeltasAndJavaSerialization
 
 		this.sessionRepository.save(session);
 
-		Customer janeDoe = Customer.newCustomer("Jane Doe");
+		Customer janeDoe = new Customer("Jane Doe");
 
 		session.setAttribute("janeDoe", janeDoe);
 
@@ -128,30 +138,7 @@ public class SessionSerializationWithDataSerializationDeltasAndJavaSerialization
 	)
 	static class GemFireClientConfiguration { }
 
-	@CacheServerApplication(logLevel = GEMFIRE_LOG_LEVEL)
-	@EnableGemFireHttpSession(
-		regionName = SESSIONS_REGION_NAME,
-		sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME
-	)
-	static class GemFireServerConfiguration {
-
-		public static void main(String[] args) {
-
-			AnnotationConfigApplicationContext applicationContext =
-				new AnnotationConfigApplicationContext(GemFireServerConfiguration.class);
-
-			applicationContext.registerShutdownHook();
-		}
-	}
-
-	@Data
-	@ToString
-	@EqualsAndHashCode
-	@RequiredArgsConstructor(staticName = "newCustomer")
-	static class Customer implements Serializable {
-
-		@NonNull
-		private String name;
+	record Customer(String name) implements Serializable {
 
 		/*
 		// Uncomment this method to see exactly how/where GemFire tries to deserialize the Customer object

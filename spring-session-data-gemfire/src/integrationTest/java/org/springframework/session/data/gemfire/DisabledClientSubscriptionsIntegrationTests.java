@@ -15,9 +15,11 @@ import static org.mockito.Mockito.verify;
 import java.io.IOException;
 import java.time.Duration;
 
+import com.vmware.gemfire.testcontainers.GemFireCluster;
 import jakarta.annotation.Resource;
 
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -77,9 +79,21 @@ public class DisabledClientSubscriptionsIntegrationTests extends AbstractGemFire
 	private static final String GEMFIRE_LOG_LEVEL = "error";
 	private static final String TEST_SESSION_REGION_NAME = "TestNonInterestingSessions";
 
+	private static GemFireCluster gemFireCluster;
+
 	@BeforeClass
 	public static void startGemFireServer() throws IOException {
-		startGemFireServer(TestSpringSessionGemFireServerConfiguration.class);
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+				.withGfsh(false, "create region --type=PARTITION --name=" + TEST_SESSION_REGION_NAME);
+
+		gemFireCluster.acceptLicense().start();
+
+		System.setProperty("spring.data.gemfire.pool.locators", String.format("localhost[%d]", gemFireCluster.getLocatorPort()));
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
 	}
 
 	@Resource(name = GemFireHttpSessionConfiguration.DEFAULT_SESSION_REGION_NAME)
@@ -234,22 +248,6 @@ public class DisabledClientSubscriptionsIntegrationTests extends AbstractGemFire
 		@Bean
 		SessionEventListener sessionEventListener() {
 			return new SessionEventListener();
-		}
-	}
-
-	@CacheServerApplication(name = "DisabledClientSubscriptionsIntegrationTests", logLevel = GEMFIRE_LOG_LEVEL)
-	@EnableGemFireHttpSession(
-		regionName = TEST_SESSION_REGION_NAME,
-		maxInactiveIntervalInSeconds = MAX_INACTIVE_INTERVAL_IN_SECONDS
-	)
-	static class TestSpringSessionGemFireServerConfiguration {
-
-		public static void main(String[] args) {
-
-			AnnotationConfigApplicationContext applicationContext =
-				new AnnotationConfigApplicationContext(TestSpringSessionGemFireServerConfiguration.class);
-
-			applicationContext.registerShutdownHook();
 		}
 	}
 }

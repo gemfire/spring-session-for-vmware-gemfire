@@ -9,6 +9,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
+import com.vmware.gemfire.testcontainers.GemFireCluster;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -58,13 +60,26 @@ public class ClientServerProxyRegionSessionOperationsIntegrationTests extends Ab
 
 	private static final int MAX_INACTIVE_INTERVAL_IN_SECONDS = 1;
 
+	private static GemFireCluster gemFireCluster;
+
 	@Autowired
 	@SuppressWarnings("unused")
 	private SessionEventListener sessionEventListener;
 
 	@BeforeClass
 	public static void startGemFireServer() throws IOException {
-		startGemFireServer(SpringSessionDataGemFireServerConfiguration.class);
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+				.withGfsh(false, "create region --name=ClusteredSpringSessions --type=PARTITION --enable-statistics " +
+						"--entry-idle-time-expiration-action=INVALIDATE --entry-idle-time-expiration=" + MAX_INACTIVE_INTERVAL_IN_SECONDS);
+
+		gemFireCluster.acceptLicense().start();
+
+		System.setProperty("spring.data.gemfire.pool.locators", String.format("localhost[%d]", gemFireCluster.getLocatorPort()));
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
 	}
 
 	@Test
@@ -150,24 +165,6 @@ public class ClientServerProxyRegionSessionOperationsIntegrationTests extends Ab
 		@Bean
 		public SessionEventListener sessionEventListener() {
 			return new SessionEventListener();
-		}
-
-	}
-
-	@CacheServerApplication(
-		name = "ClientServerProxyRegionSessionOperationsIntegrationTests",
-		logLevel = "error"
-	)
-	@EnableGemFireHttpSession(maxInactiveIntervalInSeconds = MAX_INACTIVE_INTERVAL_IN_SECONDS)
-	static class SpringSessionDataGemFireServerConfiguration {
-
-		@SuppressWarnings("resource")
-		public static void main(String[] args) {
-
-			AnnotationConfigApplicationContext context =
-				new AnnotationConfigApplicationContext(SpringSessionDataGemFireServerConfiguration.class);
-
-			context.registerShutdownHook();
 		}
 	}
 }

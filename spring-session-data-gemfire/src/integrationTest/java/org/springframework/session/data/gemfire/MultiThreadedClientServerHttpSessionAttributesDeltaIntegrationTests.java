@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.vmware.gemfire.testcontainers.GemFireCluster;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -21,8 +23,6 @@ import edu.umd.cs.mtc.TestFramework;
 
 import org.apache.geode.cache.client.ClientRegionShortcut;
 
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.data.gemfire.config.annotation.CacheServerApplication;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.session.Session;
 import org.springframework.session.data.gemfire.config.annotation.web.http.EnableGemFireHttpSession;
@@ -32,7 +32,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.util.ObjectUtils;
 
 /**
- * Integration tests containing test cases asserting the the proper behavior of concurrently accessing a {@link Session}
+ * Integration tests containing test cases asserting the proper behavior of concurrently accessing a {@link Session}
  * using Spring Session backed by Apache Geode or Pivotal GemFire in a Multi-Threaded context.
  *
  * @author John Blum
@@ -53,9 +53,23 @@ import org.springframework.util.ObjectUtils;
 public class MultiThreadedClientServerHttpSessionAttributesDeltaIntegrationTests
 		extends AbstractGemFireIntegrationTests {
 
+	private static GemFireCluster gemFireCluster;
+
 	@BeforeClass
 	public static void startGemFireServer() throws IOException {
-		startGemFireServer(GemFireServerConfiguration.class);
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+				.withCacheXml(GemFireCluster.ALL_GLOB, "/session-serializer-cache.xml")
+				.withClasspath(GemFireCluster.ALL_GLOB, System.getProperty("TEST_JAR_PATH"))
+				.withGfsh(false, "create region --type=PARTITION --name=Sessions");
+
+		gemFireCluster.acceptLicense().start();
+
+		System.setProperty("spring.data.gemfire.pool.locators", String.format("localhost[%d]", gemFireCluster.getLocatorPort()));
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
 	}
 
 	@Test
@@ -267,24 +281,4 @@ public class MultiThreadedClientServerHttpSessionAttributesDeltaIntegrationTests
 		sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME
 	)
 	static class GemFireClientConfiguration { }
-
-	@CacheServerApplication(
-		name = "MultiThreadedClientServerHttpSessionAttributesDeltaIntegrationTests",
-		logLevel = "error"
-	)
-	@EnableGemFireHttpSession(
-		regionName = "Sessions",
-		sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME
-	)
-	static class GemFireServerConfiguration {
-
-		public static void main(String[] args) {
-
-			AnnotationConfigApplicationContext applicationContext =
-				new AnnotationConfigApplicationContext(GemFireServerConfiguration.class);
-
-			applicationContext.registerShutdownHook();
-		}
-	}
-
 }

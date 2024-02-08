@@ -4,30 +4,18 @@
  */
 package org.springframework.session.data.gemfire.serialization.data;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.io.IOException;
-import java.io.Serializable;
-
+import com.vmware.gemfire.testcontainers.GemFireCluster;
+import org.apache.geode.cache.client.ClientCache;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import org.apache.geode.cache.GemFireCache;
-import org.apache.geode.cache.client.ClientCache;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Profile;
-import org.springframework.data.gemfire.LocalRegionFactoryBean;
 import org.springframework.data.gemfire.config.annotation.CacheServerApplication;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
-import org.springframework.lang.NonNull;
-import org.springframework.lang.Nullable;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
 import org.springframework.session.data.gemfire.AbstractGemFireIntegrationTests;
@@ -36,10 +24,10 @@ import org.springframework.session.data.gemfire.config.annotation.web.http.GemFi
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
+import java.io.IOException;
+import java.io.Serializable;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests testing the configuration of client-side Data Serialization with no explicit server-side
@@ -64,20 +52,28 @@ import lombok.ToString;
  */
 @RunWith(SpringRunner.class)
 @ContextConfiguration(classes = SessionSerializationWithDataSerializationAndNoServerSerializationConfigurationIntegrationTests.ClientTestConfiguration.class)
-public class SessionSerializationWithDataSerializationAndNoServerSerializationConfigurationIntegrationTests
-		extends AbstractGemFireIntegrationTests {
+public class SessionSerializationWithDataSerializationAndNoServerSerializationConfigurationIntegrationTests {
 
 	private static final String SESSIONS_REGION_NAME = "Sessions";
+
+	private static GemFireCluster gemFireCluster;
 
 	@BeforeClass
 	public static void startGemFireServer() throws IOException {
 
-		String[] arguments = {
-			//"-Dspring.profiles.active=server-session-config",
-			"-Dspring.session.data.gemfire.session.serializer.bean-name=SessionDataSerializer"
-		};
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+				.withCacheXml(GemFireCluster.ALL_GLOB, "/session-serializer-cache.xml")
+				.withClasspath(GemFireCluster.ALL_GLOB, System.getProperty("TEST_JAR_PATH"))
+				.withGfsh(false, "create region --name=Sessions --type=PARTITION");
 
-		startGemFireServer(ServerTestConfiguration.class, arguments);
+		gemFireCluster.acceptLicense().start();
+
+		System.setProperty("spring.data.gemfire.pool.locators", String.format("localhost[%d]", gemFireCluster.getLocatorPort()));
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
 	}
 
 	@Autowired
@@ -104,7 +100,7 @@ public class SessionSerializationWithDataSerializationAndNoServerSerializationCo
 		assertThat(session.isExpired()).isFalse();
 		assertThat(session.getAttributeNames()).isEmpty();
 
-		User jonDoe = User.newUser("jonDoe").identifiedBy(1);
+		User jonDoe = new User(1, "jonDoe");
 
 		session.setAttribute("user", jonDoe);
 
@@ -114,7 +110,7 @@ public class SessionSerializationWithDataSerializationAndNoServerSerializationCo
 		// Saves the entire Session object
 		this.sessionRepository.save(session);
 
-		User janeDoe = User.newUser("janeDoe").identifiedBy(2);
+		User janeDoe = new User(2, "janeDoe");
 
 		session.setAttribute("user", janeDoe);
 
@@ -140,48 +136,7 @@ public class SessionSerializationWithDataSerializationAndNoServerSerializationCo
 		sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME
 	)
 	static class ClientTestConfiguration { }
-
-	@CacheServerApplication
-	@Import(ServerSessionTestConfiguration.class)
-	static class ServerTestConfiguration {
-
-		public static void main(String[] args) {
-			new AnnotationConfigApplicationContext(ServerTestConfiguration.class)
-				.registerShutdownHook();
-		}
-
-		@Bean(SESSIONS_REGION_NAME)
-		public LocalRegionFactoryBean<Object, Object> localRegion(GemFireCache gemfireCache) {
-
-			LocalRegionFactoryBean<Object, Object> localRegion = new LocalRegionFactoryBean<>();
-
-			localRegion.setCache(gemfireCache);
-			localRegion.setPersistent(false);
-
-			return localRegion;
-		}
-	}
-
-	@Configuration
-	@Profile("server-session-config")
-	@EnableGemFireHttpSession(sessionSerializerBeanName =
-		GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME)
-	static class ServerSessionTestConfiguration { }
-
-	@Getter
-	@ToString(of = "name")
-	@EqualsAndHashCode(of = "name")
-	@RequiredArgsConstructor(staticName = "newUser")
-	static class User implements Serializable {
-
-		private Integer id;
-
-		@lombok.NonNull
-		private final String name;
-
-		public @NonNull User identifiedBy(@Nullable Integer id) {
-			this.id = id;
-			return this;
-		}
+	
+  record User(Integer id, String name) implements Serializable {
 	}
 }

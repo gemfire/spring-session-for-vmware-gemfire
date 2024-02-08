@@ -11,11 +11,9 @@ import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
-import java.util.Collections;
-import java.util.Date;
 import java.util.Map;
-import java.util.Optional;
 
+import com.vmware.gemfire.testcontainers.GemFireCluster;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -24,12 +22,10 @@ import org.junit.runner.RunWith;
 import org.apache.geode.cache.server.CacheServer;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.data.gemfire.config.annotation.ClientCacheConfigurer;
-import org.springframework.data.gemfire.support.ConnectionEndpoint;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.session.Session;
 import org.springframework.session.data.gemfire.AbstractGemFireIntegrationTests;
@@ -39,7 +35,6 @@ import org.springframework.session.data.gemfire.config.annotation.web.http.Enabl
 import org.springframework.session.data.gemfire.server.GemFireServer;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
-import org.springframework.util.FileSystemUtils;
 
 /**
  * Integration tests asserting that a GemFire/Geode Server does not require any Spring Session Data GemFire/Geode
@@ -75,6 +70,8 @@ public class SessionSerializationWithPdxRequiresNoServerConfigurationIntegration
 
 	private static Process gemfireServer;
 
+	private static GemFireCluster gemFireCluster;
+
 	private static final String GEMFIRE_LOG_LEVEL = "error";
 
 	@Autowired
@@ -82,50 +79,17 @@ public class SessionSerializationWithPdxRequiresNoServerConfigurationIntegration
 
 	@BeforeClass
 	public static void startGemFireServer() throws IOException {
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+				.withGfsh(false, "create region --type=PARTITION --name=ClusteredSpringSessions");
 
-		long t0 = System.currentTimeMillis();
+		gemFireCluster.acceptLicense().start();
 
-		int port = findAndReserveAvailablePort();
-
-		System.setProperty("spring.session.data.gemfire.cache.server.port", String.valueOf(port));
-
-		String classpath = buildClassPathContainingJarFiles("javax.transaction-api", "antlr",
-			"commons-lang", "commons-io", "commons-validator", "fastutil", "log4j-api", "log4j-to-slf4j",
-			"gemfire-common", "gemfire-core", "gemfire-deployment-chained-classloader", "gemfire-logging", "gemfire-management", "gemfire-membership",
-			"gemfire-serialization", "gemfire-tcp-server","gemfire-tcp-messenger", "jgroups", "micrometer-core", "micrometer-commons", "rmiio", "gemfire-version",
-			"shiro-core", "slf4j-api");
-
-		String processWorkingDirectoryPathname =
-			String.format("gemfire-server-pdx-serialization-tests-%1$s", TIMESTAMP.format(new Date()));
-
-		processWorkingDirectory = createDirectory(processWorkingDirectoryPathname);
-
-		gemfireServer = run(classpath, GemFireServer.class,
-			processWorkingDirectory, String.format("-Dspring.session.data.gemfire.cache.server.port=%d", port),
-				String.format("-Dgemfire.log-level=%s", GEMFIRE_LOG_LEVEL));
-
- 		assertThat(waitForServerToStart("localhost", port)).isTrue();
-
-		//System.err.printf("GemFire Server [startup time = %d ms]%n", System.currentTimeMillis() - t0);
+		System.setProperty("spring.data.gemfire.pool.locators", String.format("localhost[%d]", gemFireCluster.getLocatorPort()));
 	}
 
 	@AfterClass
-	public static void stopGemFireServer() {
-
-		Optional.ofNullable(gemfireServer).ifPresent(server -> {
-
-			server.destroy();
-
-			System.err.printf("GemFire Server [exit code = %d]%n",
-				waitForProcessToStop(server, processWorkingDirectory));
-		});
-
-		boolean forkClean = !System.getProperties().containsKey("spring.session.data.gemfire.fork.clean")
-			|| Boolean.getBoolean("spring.session.data.gemfire.fork.clean");
-
-		if (forkClean) {
-			FileSystemUtils.deleteRecursively(processWorkingDirectory);
-		}
+	public static void teardown() {
+		gemFireCluster.close();
 	}
 
 	@Test
@@ -211,14 +175,6 @@ public class SessionSerializationWithPdxRequiresNoServerConfigurationIntegration
 		@Bean
 		static PropertySourcesPlaceholderConfigurer propertyPlaceholderConfigurer() {
 			return new PropertySourcesPlaceholderConfigurer();
-		}
-
-		@Bean
-		ClientCacheConfigurer clientCachePoolPortConfigurer(@Value("${spring.session.data.gemfire.cache.server.port:"
-				+ CacheServer.DEFAULT_PORT + "}") int cacheServerPort) {
-
-			return (beanName, clientCacheFactoryBean) -> clientCacheFactoryBean.setServers(Collections.singletonList(
-				new ConnectionEndpoint("localhost", cacheServerPort)));
 		}
 	}
 }

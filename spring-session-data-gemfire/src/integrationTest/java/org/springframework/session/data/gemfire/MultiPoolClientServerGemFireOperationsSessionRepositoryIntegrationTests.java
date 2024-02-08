@@ -9,6 +9,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
+import com.vmware.gemfire.testcontainers.GemFireCluster;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -19,12 +21,9 @@ import org.apache.geode.cache.Region;
 import org.apache.geode.cache.RegionAttributes;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.data.gemfire.client.PoolFactoryBean;
-import org.springframework.data.gemfire.config.annotation.CacheServerApplication;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.data.gemfire.support.ConnectionEndpoint;
 import org.springframework.session.Session;
@@ -75,9 +74,20 @@ public class MultiPoolClientServerGemFireOperationsSessionRepositoryIntegrationT
 	@Autowired
 	private SessionEventListener sessionEventListener;
 
+	private static GemFireCluster gemFireCluster;
+
 	@BeforeClass
 	public static void startGemFireServer() throws IOException {
-		startGemFireServer(SpringSessionDataGemFireServerConfiguration.class);
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+				.withGfsh(true, "create region --type=PARTITION --name=" + SPRING_SESSION_GEMFIRE_REGION_NAME
+				 + " --enable-statistics --entry-idle-time-expiration-action=INVALIDATE --entry-idle-time-expiration=" + MAX_INACTIVE_INTERVAL_IN_SECONDS);
+
+		gemFireCluster.acceptLicense().start();
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
 	}
 
 	@Before
@@ -160,7 +170,7 @@ public class MultiPoolClientServerGemFireOperationsSessionRepositoryIntegrationT
 		}
 
 		@Bean
-		PoolFactoryBean serverPool(@Value("${" + GEMFIRE_CACHE_SERVER_PORT_PROPERTY + "}") int port) {
+		PoolFactoryBean serverPool() {
 
 			PoolFactoryBean poolFactory = new PoolFactoryBean();
 
@@ -172,7 +182,7 @@ public class MultiPoolClientServerGemFireOperationsSessionRepositoryIntegrationT
 			poolFactory.setReadTimeout(2000); // 2 seconds
 			poolFactory.setRetryAttempts(1);
 			poolFactory.setSubscriptionEnabled(true);
-			poolFactory.addServers(newConnectionEndpoint("localhost", port));
+			poolFactory.addServers(newConnectionEndpoint("localhost", gemFireCluster.getServerPorts().get(0)));
 
 			return poolFactory;
 		}
@@ -180,27 +190,6 @@ public class MultiPoolClientServerGemFireOperationsSessionRepositoryIntegrationT
 		@Bean
 		public SessionEventListener sessionEventListener() {
 			return new SessionEventListener();
-		}
-	}
-
-	@CacheServerApplication(
-		name = "MultiPoolClientServerGemFireOperationsSessionRepositoryIntegrationTests",
-		maxConnections = 50,
-		logLevel = "error"
-	)
-	@EnableGemFireHttpSession(
-		regionName = SPRING_SESSION_GEMFIRE_REGION_NAME,
-		maxInactiveIntervalInSeconds = MAX_INACTIVE_INTERVAL_IN_SECONDS
-	)
-	static class SpringSessionDataGemFireServerConfiguration {
-
-		@SuppressWarnings("resource")
-		public static void main(final String[] args) {
-
-			AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(
-				SpringSessionDataGemFireServerConfiguration.class);
-
-			context.registerShutdownHook();
 		}
 	}
 }

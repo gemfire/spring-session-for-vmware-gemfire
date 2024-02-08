@@ -9,6 +9,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.io.NotSerializableException;
 
+import com.vmware.gemfire.testcontainers.GemFireCluster;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,11 +31,6 @@ import org.springframework.session.data.gemfire.config.annotation.web.http.Enabl
 import org.springframework.session.data.gemfire.config.annotation.web.http.GemFireHttpSessionConfiguration;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
-
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 
 /**
  * Integration test testing the serialization of a {@link Session} object containing application domain object types
@@ -66,16 +63,31 @@ public class SessionSerializationWithDataSerializationDeltasAndPdxIntegrationTes
 
 	private static final String GEMFIRE_LOG_LEVEL = "error";
 
+	private static GemFireCluster gemFireCluster;
+
 	@BeforeClass
 	public static void startGemFireServer() throws IOException {
-		startGemFireServer(GemFireServerConfiguration.class);
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+				.withCacheXml(GemFireCluster.ALL_GLOB, "/session-serializer-cache.xml")
+				.withClasspath(GemFireCluster.ALL_GLOB, System.getProperty("TEST_JAR_PATH"))
+				.withPdx("org\\.springframework\\.session\\.data\\.gemfire\\.serialization\\.data\\..*", true)
+				.withGfsh(false, "create region --type=PARTITION --name=ClusteredSpringSessions");
+
+		gemFireCluster.acceptLicense().start();
+
+		System.setProperty("spring.data.gemfire.pool.locators", String.format("localhost[%d]", gemFireCluster.getLocatorPort()));
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
 	}
 
 	@Test
 	public void sessionDataSerializationWithCustomerPdxSerializationWorksAsExpected() {
 
-		Customer jonDoe = Customer.newCustomer("Jon Doe");
-		Customer janeDoe = Customer.newCustomer("Jane Doe");
+		Customer jonDoe = new Customer("Jon Doe");
+		Customer janeDoe = new Customer("Jane Doe");
 
 		Session session = createSession();
 
@@ -123,7 +135,7 @@ public class SessionSerializationWithDataSerializationDeltasAndPdxIntegrationTes
 	@Test(expected = DeltaSerializationException.class)
 	public void serializationOfNonSerializableTypeThrowsException() {
 
-		NonSerializableType value = NonSerializableType.of("test");
+		NonSerializableType value = new NonSerializableType("test");
 
 		Session session = createSession();
 
@@ -169,52 +181,7 @@ public class SessionSerializationWithDataSerializationDeltasAndPdxIntegrationTes
 		}
 	}
 
-	@CacheServerApplication(
-		name = "SessionSerializationWithDataSerializationDeltasAndPdxIntegrationTests",
-		logLevel = GEMFIRE_LOG_LEVEL
-	)
-	@EnableGemFireHttpSession(sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME)
-	static class GemFireServerConfiguration {
+	record Customer(String name) { }
 
-		@Bean
-		PeerCacheConfigurer pdxReadSerializedConfigurer() {
-			return (beanName, cacheFactoryBean) -> cacheFactoryBean.setPdxReadSerialized(true);
-		}
-
-		public static void main(String[] args) {
-
-			AnnotationConfigApplicationContext applicationContext =
-				new AnnotationConfigApplicationContext(GemFireServerConfiguration.class);
-
-			applicationContext.registerShutdownHook();
-		}
-	}
-
-	@Data
-	@EqualsAndHashCode
-	@RequiredArgsConstructor(staticName = "newCustomer")
-	static class Customer {
-
-		@NonNull
-		private String name;
-
-		@Override
-		public String toString() {
-			return getName();
-		}
-	}
-
-	@Data
-	@EqualsAndHashCode
-	@RequiredArgsConstructor(staticName = "of")
-	static class NonSerializableType {
-
-		@NonNull
-		private String value;
-
-		@Override
-		public String toString() {
-			return getValue();
-		}
-	}
+	record NonSerializableType(String value) { }
 }
