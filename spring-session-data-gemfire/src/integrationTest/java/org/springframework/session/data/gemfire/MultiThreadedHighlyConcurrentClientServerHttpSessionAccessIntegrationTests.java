@@ -70,8 +70,11 @@ public class MultiThreadedHighlyConcurrentClientServerHttpSessionAccessIntegrati
 
 	private static final boolean SESSION_REFERENCE_CHECKING_ENABLED = false;
 
+	// TODO: Set WORKLOAD_SIZE back to 10,000 once Apache Geode fixes its concurrency and resource problems!
+	//  NOTE: This issue may be related to (from Anil Gingade): https://issues.apache.org/jira/browse/GEODE-7663
+	//  NOTE: See https://issues.apache.org/jira/browse/GEODE-7763
 	private static final int THREAD_COUNT = 180;
-	private static final int WORKLOAD_SIZE = 10000;
+	private static final int WORKLOAD_SIZE = 3000;
 
 	private static GemFireCluster gemFireCluster;
 
