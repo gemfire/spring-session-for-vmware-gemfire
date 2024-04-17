@@ -14,7 +14,7 @@ plugins {
   alias(libs.plugins.littlerobots.version.catalog.update)
 }
 
-group="com.vmware.gemfire"
+group = "com.vmware.gemfire"
 
 allprojects {
   configurations.all {
@@ -53,11 +53,11 @@ fun isPatch(candidateVersion: String, currentVersion: String): Boolean {
     if (candidateSplit.size == currentSplit.size) {
       if (candidateSplit[0] != currentSplit[0]) {
         return false
-      }
-      if (candidateSplit[1] != currentSplit[1]) {
+      } else if (candidateSplit[1] != currentSplit[1]) {
         return false
+      } else {
+        return true
       }
-      return true
     }
   } else {
     return false
