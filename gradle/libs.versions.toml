@@ -17,10 +17,10 @@ multithreadedtcVersion = "1.01"
 seleniumHTMLDriverVersion = "3.61.0"
 seleniumVersion = "4.5.3"
 slf4jVersion = "2.0.13"
-springSecurityVersion = "6.2.4"
+springSecurityVersion = "6.3.0-RC1"
 springShellVersion = "1.2.0.RELEASE"
 springVersion = "6.1.6"
-springSessionVersion = "3.2.2"
+springSessionVersion = "3.3.0-RC1"
 webjarsBootstrapVersion = "2.3.2"
 webjarsJqueryVersion = "1.12.4"
 webjarsLocatorCoreVersion = "0.32"
@@ -55,8 +55,8 @@ selenium-htmlunit-driver = { module = "org.seleniumhq.selenium:htmlunit-driver",
 selenium-remote-driver = { module = "org.seleniumhq.selenium:selenium-remote-driver", version.ref = "seleniumVersion" }
 selenium-support = { module = "org.seleniumhq.selenium:selenium-support", version.ref = "seleniumVersion" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4jVersion" }
-spring-data-gemfire = { module = "com.vmware.gemfire:spring-data-3.2-gemfire-10.2", version.ref = "springDataGemFireVersion" }
-spring-test-gemfire = { module = "com.vmware.gemfire:spring-test-gemfire-10.2-3.2", version.ref = "springTestGemFireVersion" }
+spring-data-gemfire = { module = "com.vmware.gemfire:spring-data-3.3-gemfire-10.2", version.ref = "springDataGemFireVersion" }
+spring-test-gemfire = { module = "com.vmware.gemfire:spring-test-gemfire-10.2-3.3", version.ref = "springTestGemFireVersion" }
 spring-tx = { module = "org.springframework:spring-tx", version.ref = "springVersion" }
 spring-security-test = { module = "org.springframework.security:spring-security-test", version.ref = "springSecurityVersion" }
 spring-shell = { module = "org.springframework.shell:spring-shell", version.ref = "springShellVersion" }

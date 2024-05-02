@@ -31,18 +31,23 @@ java {
     toolchain { languageVersion = JavaLanguageVersion.of(17) }
 }
 
+repositories {
+    mavenCentral()
+    maven { url = uri("https://repo.spring.io/milestone") }
+}
+
 tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.add("-parameters")
 }
 
 tasks.named<Javadoc>("javadoc") {
     title =
-        "Spring Session 3.2 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
+        "Spring Session 3.3 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
     isFailOnError = false
 }
 
 publishingDetails {
-    artifactName.set("spring-session-3.2-gemfire-${getGemFireBaseVersion()}")
+    artifactName.set("spring-session-3.3-gemfire-${getGemFireBaseVersion()}")
     longName.set("Spring Session VMware GemFire")
     description.set("Spring Session For VMware GemFire")
 }
