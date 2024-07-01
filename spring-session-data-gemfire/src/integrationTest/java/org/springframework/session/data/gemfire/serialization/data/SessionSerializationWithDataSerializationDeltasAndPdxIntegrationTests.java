@@ -19,11 +19,9 @@ import org.apache.geode.DeltaSerializationException;
 
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.gemfire.CacheFactoryBean;
-import org.springframework.data.gemfire.config.annotation.CacheServerApplication;
+import org.springframework.data.gemfire.client.ClientCacheFactoryBean;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.data.gemfire.config.annotation.EnablePdx;
-import org.springframework.data.gemfire.config.annotation.PeerCacheConfigurer;
 import org.springframework.data.gemfire.mapping.MappingPdxSerializer;
 import org.springframework.session.Session;
 import org.springframework.session.data.gemfire.AbstractGemFireIntegrationTests;
@@ -40,10 +38,8 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @see Test
  * @see AnnotationConfigApplicationContext
  * @see Bean
- * @see CacheServerApplication
  * @see ClientCacheApplication
  * @see EnablePdx
- * @see PeerCacheConfigurer
  * @see MappingPdxSerializer
  * @see Session
  * @see AbstractGemFireIntegrationTests
@@ -59,7 +55,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 public class SessionSerializationWithDataSerializationDeltasAndPdxIntegrationTests
 		extends AbstractGemFireIntegrationTests {
 
-	private CacheFactoryBean cache;
+	private ClientCacheFactoryBean cache;
 
 	private static final String GEMFIRE_LOG_LEVEL = "error";
 

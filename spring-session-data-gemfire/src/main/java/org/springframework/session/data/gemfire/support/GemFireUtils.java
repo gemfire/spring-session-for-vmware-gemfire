@@ -7,16 +7,13 @@ package org.springframework.session.data.gemfire.support;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Optional;
-
 import org.apache.geode.cache.Cache;
 import org.apache.geode.cache.DataPolicy;
-import org.apache.geode.cache.GemFireCache;
 import org.apache.geode.cache.Region;
 import org.apache.geode.cache.RegionAttributes;
 import org.apache.geode.cache.RegionShortcut;
+import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
-
-import org.springframework.data.gemfire.util.CacheUtils;
 import org.springframework.lang.Nullable;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
@@ -27,7 +24,7 @@ import org.springframework.util.StringUtils;
  *
  * @author John Blum
  * @see Cache
- * @see GemFireCache
+ * @see ClientCache
  * @see Region
  * @see org.apache.geode.cache.client.ClientCache
  * @since 1.1.0
@@ -56,30 +53,6 @@ public abstract class GemFireUtils {
 	}
 
 	/**
-	 * Determines whether the Pivotal GemFire cache is a client.
-	 *
-	 * @param gemfireCache a reference to the Pivotal GemFire cache.
-	 * @return a boolean value indicating whether the Pivotal GemFire cache is a client.
-	 * @see org.apache.geode.cache.client.ClientCache
-	 * @see GemFireCache
-	 */
-	public static boolean isClient(@Nullable GemFireCache gemfireCache) {
-		return CacheUtils.isClient(gemfireCache);
-	}
-
-	/**
-	 * Determines whether the Pivotal GemFire cache is a peer.
-	 *
-	 * @param gemFireCache a reference to the Pivotal GemFire cache.
-	 * @return a boolean value indicating whether the Pivotal GemFire cache is a peer.
-	 * @see Cache
-	 * @see GemFireCache
-	 */
-	public static boolean isPeer(@Nullable GemFireCache gemFireCache) {
-		return gemFireCache instanceof Cache && !isClient(gemFireCache);
-	}
-
-	/**
 	 * Determines whether the given {@link ClientRegionShortcut} is local only.
 	 *
 	 * @param shortcut {@link ClientRegionShortcut} to evaluate.
@@ -105,9 +78,8 @@ public abstract class GemFireUtils {
 		return Optional.ofNullable(region)
 			.filter(GemFireUtils::isPoolConfiguredOrHasServerProxy)
 			.map(Region::getRegionService)
-			.filter(GemFireCache.class::isInstance)
-			.map(GemFireCache.class::cast)
-			.filter(GemFireUtils::isClient)
+			.filter(ClientCache.class::isInstance)
+			.map(ClientCache.class::cast)
 			.isPresent();
 	}
 

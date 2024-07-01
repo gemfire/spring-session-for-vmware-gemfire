@@ -5,14 +5,17 @@
 package org.springframework.session.data.gemfire.expiration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
+import com.vmware.gemfire.testcontainers.GemFireCluster;
+import java.io.IOException;
 import java.time.Duration;
-
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.gemfire.config.annotation.PeerCacheApplication;
+import org.springframework.data.gemfire.client.PoolFactoryBean;
+import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
+import org.springframework.data.gemfire.support.ConnectionEndpoint;
 import org.springframework.data.gemfire.tests.mock.annotation.EnableGemFireMockObjects;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
@@ -45,6 +48,18 @@ import org.springframework.test.context.junit4.SpringRunner;
 @SuppressWarnings("unused")
 public class LazyTimeoutSessionExpirationIntegrationTests extends AbstractGemFireIntegrationTests {
 
+	private static GemFireCluster gemFireCluster;
+
+	@BeforeClass
+	public static void startGemFireServer() throws IOException {
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1);
+		gemFireCluster.acceptLicense().start();
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
+	}
 	@Test
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void sessionRepositoryIsAFixedDurationExpirationSessionRepository() {
@@ -76,10 +91,17 @@ public class LazyTimeoutSessionExpirationIntegrationTests extends AbstractGemFir
 		assertThat(expiredSession).isNull();
 	}
 
-	@PeerCacheApplication
+	@ClientCacheApplication
 	@EnableGemFireHttpSession
 	@EnableGemFireMockObjects
 	static class TestConfiguration {
+
+		@Bean
+		PoolFactoryBean gemfirePool() {
+			PoolFactoryBean poolFactory = new PoolFactoryBean();
+			poolFactory.addServers(new ConnectionEndpoint("localhost", gemFireCluster.getLocatorPort()));
+			return poolFactory;
+		}
 
 		@Bean
 		FixedDurationExpirationSessionRepositoryBeanPostProcessor fixedDurationExpirationBeanPostProcessor() {

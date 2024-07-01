@@ -14,7 +14,6 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.gemfire.config.annotation.CacheServerApplication;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
@@ -39,7 +38,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @see ClientCache
  * @see AnnotationConfigApplicationContext
  * @see Bean
- * @see CacheServerApplication
  * @see ClientCacheApplication
  * @see Session
  * @see SessionRepository

@@ -12,7 +12,8 @@ import static org.mockito.Mockito.verify;
 import static org.springframework.data.gemfire.util.ArrayUtils.nullSafeArray;
 import static org.springframework.data.gemfire.util.RuntimeExceptionFactory.newIllegalStateException;
 import static org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.GemFireSession;
-
+import com.vmware.gemfire.testcontainers.GemFireCluster;
+import edu.umd.cs.mtc.TestFramework;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -20,27 +21,20 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Predicate;
-
-import com.vmware.gemfire.testcontainers.GemFireCluster;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mockito;
-
-import edu.umd.cs.mtc.TestFramework;
-
 import org.apache.geode.DataSerializer;
 import org.apache.geode.cache.DataPolicy;
-import org.apache.geode.cache.GemFireCache;
 import org.apache.geode.cache.Region;
 import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.geode.cache.client.Pool;
 import org.apache.geode.cache.client.PoolManager;
 import org.apache.geode.internal.InternalDataSerializer;
-
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mockito;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
@@ -60,7 +54,7 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @see Test
  * @see Mockito
  * @see DataSerializer
- * @see GemFireCache
+ * @see ClientCache
  * @see Region
  * @see ClientCache
  * @see Pool
@@ -85,7 +79,7 @@ public class ConcurrentSessionOperationsUsingClientCachingProxyRegionIntegration
 	@Before
 	public void setup() {
 
-		GemFireCache cache = getGemFireCache();
+		ClientCache cache = getGemFireCache();
 
 		assertThat(cache).isNotNull();
 		assertThat(cache.getCopyOnRead()).isFalse();

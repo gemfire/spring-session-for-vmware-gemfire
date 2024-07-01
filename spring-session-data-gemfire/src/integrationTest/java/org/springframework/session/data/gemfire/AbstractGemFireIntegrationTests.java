@@ -7,7 +7,6 @@ package org.springframework.session.data.gemfire;
 import static java.util.Arrays.stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.data.gemfire.util.ArrayUtils.nullSafeArray;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -17,16 +16,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
-import org.junit.Before;
-
 import org.apache.geode.cache.DataPolicy;
 import org.apache.geode.cache.ExpirationAction;
 import org.apache.geode.cache.ExpirationAttributes;
-import org.apache.geode.cache.GemFireCache;
 import org.apache.geode.cache.Region;
+import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.query.Index;
-
+import org.junit.Before;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEvent;
@@ -51,7 +47,7 @@ import org.springframework.util.StringUtils;
  * @see org.junit.Test
  * @see DataPolicy
  * @see ExpirationAttributes
- * @see GemFireCache
+ * @see ClientCache
  * @see Region
  * @see Index
  * @see ApplicationEvent
@@ -82,7 +78,7 @@ public abstract class AbstractGemFireIntegrationTests extends ClientServerIntegr
 		System.getProperty("spring.session.data.gemfire.log.level", DEFAULT_GEMFIRE_LOG_LEVEL);
 
 	@Autowired(required = false)
-	protected GemFireCache gemfireCache;
+	protected ClientCache gemfireCache;
 
 	@Autowired(required = false)
 	protected GemFireOperationsSessionRepository gemfireSessionRepository;
@@ -260,7 +256,7 @@ public abstract class AbstractGemFireIntegrationTests extends ClientServerIntegr
 	}
 
 	@Nullable @SuppressWarnings("unchecked")
-	protected <T extends GemFireCache> T getGemFireCache() {
+	protected <T extends ClientCache> T getGemFireCache() {
 		return (T) this.gemfireCache;
 	}
 
@@ -315,7 +311,7 @@ public abstract class AbstractGemFireIntegrationTests extends ClientServerIntegr
 	}
 
 	@SuppressWarnings("unused")
-	protected List<String> listRegions(GemFireCache gemfireCache) {
+	protected List<String> listRegions(ClientCache gemfireCache) {
 
 		return gemfireCache.rootRegions().stream()
 			.map(Region::getFullPath)

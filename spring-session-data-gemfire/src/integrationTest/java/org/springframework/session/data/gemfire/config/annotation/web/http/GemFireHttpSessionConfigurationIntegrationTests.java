@@ -7,27 +7,22 @@ package org.springframework.session.data.gemfire.config.annotation.web.http;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.springframework.data.gemfire.util.ArrayUtils.nullSafeArray;
-
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.util.Arrays;
-
-import org.junit.Test;
-
 import org.apache.geode.DataSerializer;
-import org.apache.geode.cache.GemFireCache;
 import org.apache.geode.cache.Region;
 import org.apache.geode.cache.RegionShortcut;
+import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.geode.cache.query.Index;
 import org.apache.geode.internal.InternalDataSerializer;
-
+import org.junit.Test;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.data.gemfire.GemfireTemplate;
-import org.springframework.data.gemfire.IndexType;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.data.gemfire.tests.integration.SpringApplicationContextIntegrationTestsSupport;
 import org.springframework.data.gemfire.tests.mock.annotation.EnableGemFireMockObjects;
@@ -47,7 +42,7 @@ import org.springframework.session.data.gemfire.serialization.pdx.support.PdxSer
  * @see DataOutput
  * @see Test
  * @see org.mockito.Mockito
- * @see GemFireCache
+ * @see ClientCache
  * @see Region
  * @see Index
  * @see ConfigurableApplicationContext
@@ -83,17 +78,12 @@ public class GemFireHttpSessionConfigurationIntegrationTests extends SpringAppli
 		Region<?, ?> sessionsRegion =
 			getApplicationContext().getBean(GemFireHttpSessionConfiguration.DEFAULT_SESSION_REGION_NAME, Region.class);
 
-		Index principleNameIndex = getApplicationContext().getBean("principalNameIndex", Index.class);
 
 		GemfireTemplate sessionsRegionTemplate =
 			getApplicationContext().getBean("sessionRegionTemplate", GemfireTemplate.class);
 
 		assertThat(sessionsRegion).isNotNull();
 		assertThat(sessionsRegion.getName()).isEqualTo(GemFireHttpSessionConfiguration.DEFAULT_SESSION_REGION_NAME);
-		assertThat(principleNameIndex).isNotNull();
-		assertThat(principleNameIndex.getName()).isEqualTo("principalNameIndex");
-		assertThat(principleNameIndex.getType()).isEqualTo(IndexType.FUNCTIONAL.getGemfireIndexType());
-		assertThat(principleNameIndex.getRegion()).isEqualTo(sessionsRegion);
 		assertThat(getApplicationContext().getBean(SessionRepository.class)).isInstanceOf(GemFireOperationsSessionRepository.class);
 		assertThat(sessionsRegionTemplate).isNotNull();
 		assertThat(sessionsRegionTemplate.getRegion()).isEqualTo(sessionsRegion);
@@ -140,7 +130,7 @@ public class GemFireHttpSessionConfigurationIntegrationTests extends SpringAppli
 		assertThat(configuration).isNotNull();
 		assertThat(configuration.isUsingDataSerialization()).isTrue();
 
-		GemFireCache gemfireCache = getApplicationContext().getBean(GemFireCache.class);
+		ClientCache gemfireCache = getApplicationContext().getBean(ClientCache.class);
 
 		assertThat(gemfireCache).isNotNull();
 		assertThat(gemfireCache.getPdxSerializer()).isNull();
@@ -181,7 +171,7 @@ public class GemFireHttpSessionConfigurationIntegrationTests extends SpringAppli
 		assertThat(configuration.isUsingDataSerialization()).isFalse();
 		assertThat(configuration.getSessionSerializerBeanName()).isEqualTo("TestSessionSerializer");
 
-		GemFireCache gemfireCache = getApplicationContext().getBean(GemFireCache.class);
+		ClientCache gemfireCache = getApplicationContext().getBean(ClientCache.class);
 
 		SessionSerializer testSessionSerializer =
 			getApplicationContext().getBean("TestSessionSerializer", SessionSerializer.class);
