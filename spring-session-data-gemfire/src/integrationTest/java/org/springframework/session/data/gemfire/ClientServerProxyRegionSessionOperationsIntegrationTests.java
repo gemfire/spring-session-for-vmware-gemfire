@@ -21,7 +21,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.gemfire.config.annotation.CacheServerApplication;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.session.Session;
 import org.springframework.session.data.gemfire.config.annotation.web.http.EnableGemFireHttpSession;
@@ -42,7 +41,6 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @see Test
  * @see ApplicationEvent
  * @see AnnotationConfigApplicationContext
- * @see CacheServerApplication
  * @see ClientCacheApplication
  * @see EnableGemFireHttpSession
  * @see SessionCreatedEvent

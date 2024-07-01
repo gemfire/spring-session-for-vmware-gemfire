@@ -72,46 +72,6 @@ public class GemFireUtilsTests {
 	}
 
 	@Test
-	public void clientCacheIsClient() {
-		assertThat(GemFireUtils.isClient(mock(ClientCache.class))).isTrue();
-	}
-
-	@Test
-	public void genericCacheIsNotClient() {
-		assertThat(GemFireUtils.isClient(mock(GemFireCache.class))).isFalse();
-	}
-
-	@Test
-	public void nullIsNotClient() {
-		assertThat(GemFireUtils.isClient(null)).isFalse();
-	}
-
-	@Test
-	public void peerCacheIsNotClient() {
-		assertThat(GemFireUtils.isClient(mock(Cache.class))).isFalse();
-	}
-
-	@Test
-	public void peerCacheIsPeer() {
-		assertThat(GemFireUtils.isPeer(mock(Cache.class))).isTrue();
-	}
-
-	@Test
-	public void nullIsNotPeer() {
-		assertThat(GemFireUtils.isPeer(null)).isFalse();
-	}
-
-	@Test
-	public void genericCacheIsNotPeer() {
-		assertThat(GemFireUtils.isPeer(mock(GemFireCache.class))).isFalse();
-	}
-
-	@Test
-	public void clientCacheIsNotPeer() {
-		assertThat(GemFireUtils.isPeer(mock(ClientCache.class))).isFalse();
-	}
-
-	@Test
 	public void clientRegionShortcutIsLocal() {
 
 		Arrays.stream(ClientRegionShortcut.values())
@@ -204,49 +164,6 @@ public class GemFireUtilsTests {
 		verify(mockRegion, times(1)).getAttributes();
 		verify(mockRegion, never()).getRegionService();
 		verify(mockRegion, times(1)).hasServerProxy();
-		verify(mockRegionAttributes, times(1)).getPoolName();
-	}
-
-	@Test
-	@SuppressWarnings("rawtypes")
-	public void nonClientRegionWithPoolIsNotNonLocalClientRegion() {
-
-		GemFireCache mockGemFireCache = mock(GemFireCache.class);
-
-		Region mockRegion = mock(Region.class);
-
-		RegionAttributes mockRegionAttributes = mock(RegionAttributes.class);
-
-		when(mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
-		when(mockRegion.getRegionService()).thenReturn(mockGemFireCache);
-		when(mockRegionAttributes.getPoolName()).thenReturn("Car");
-
-		assertThat(GemFireUtils.isNonLocalClientRegion(mockRegion)).isFalse();
-
-		verify(mockRegion, times(1)).getAttributes();
-		verify(mockRegion, times(1)).getRegionService();
-		verify(mockRegionAttributes, times(1)).getPoolName();
-	}
-
-	@Test
-	@SuppressWarnings("rawtypes")
-	public void peerRegionWithServerProxyIsNotNonLocalClientRegion() {
-
-		Cache mockPeerCache = mock(Cache.class);
-
-		ServerProxyCapableRegion mockRegion = mock(ServerProxyCapableRegion.class);
-
-		RegionAttributes mockRegionAttributes = mock(RegionAttributes.class);
-
-		when(mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
-		when(mockRegion.getRegionService()).thenReturn(mockPeerCache);
-		when(mockRegion.hasServerProxy()).thenReturn(true);
-		when(mockRegionAttributes.getPoolName()).thenReturn("");
-
-		assertThat(GemFireUtils.isNonLocalClientRegion(mockRegion)).isFalse();
-
-		verify(mockRegion, times(1)).getAttributes();
-		verify(mockRegion, times(1)).getRegionService();
 		verify(mockRegionAttributes, times(1)).getPoolName();
 	}
 

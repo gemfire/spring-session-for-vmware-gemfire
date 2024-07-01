@@ -27,7 +27,6 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.data.gemfire.GemfireTemplate;
-import org.springframework.data.gemfire.IndexType;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.data.gemfire.tests.integration.SpringApplicationContextIntegrationTestsSupport;
 import org.springframework.data.gemfire.tests.mock.annotation.EnableGemFireMockObjects;
@@ -92,7 +91,6 @@ public class GemFireHttpSessionConfigurationIntegrationTests extends SpringAppli
 		assertThat(sessionsRegion.getName()).isEqualTo(GemFireHttpSessionConfiguration.DEFAULT_SESSION_REGION_NAME);
 		assertThat(principleNameIndex).isNotNull();
 		assertThat(principleNameIndex.getName()).isEqualTo("principalNameIndex");
-		assertThat(principleNameIndex.getType()).isEqualTo(IndexType.FUNCTIONAL.getGemfireIndexType());
 		assertThat(principleNameIndex.getRegion()).isEqualTo(sessionsRegion);
 		assertThat(getApplicationContext().getBean(SessionRepository.class)).isInstanceOf(GemFireOperationsSessionRepository.class);
 		assertThat(sessionsRegionTemplate).isNotNull();

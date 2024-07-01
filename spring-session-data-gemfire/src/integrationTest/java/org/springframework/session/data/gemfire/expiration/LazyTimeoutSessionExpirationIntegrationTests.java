@@ -12,7 +12,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.gemfire.config.annotation.PeerCacheApplication;
+import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.data.gemfire.tests.mock.annotation.EnableGemFireMockObjects;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
@@ -76,7 +76,7 @@ public class LazyTimeoutSessionExpirationIntegrationTests extends AbstractGemFir
 		assertThat(expiredSession).isNull();
 	}
 
-	@PeerCacheApplication
+	@ClientCacheApplication
 	@EnableGemFireHttpSession
 	@EnableGemFireMockObjects
 	static class TestConfiguration {
