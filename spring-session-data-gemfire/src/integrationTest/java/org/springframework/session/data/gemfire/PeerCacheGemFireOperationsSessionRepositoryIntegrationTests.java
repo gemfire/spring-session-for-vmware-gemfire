@@ -26,7 +26,7 @@ import org.apache.geode.pdx.PdxReader;
 import org.apache.geode.pdx.PdxSerializable;
 import org.apache.geode.pdx.PdxWriter;
 
-import org.springframework.data.gemfire.config.annotation.PeerCacheApplication;
+import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContext;
@@ -51,7 +51,6 @@ import org.springframework.util.ObjectUtils;
  * @see Region
  * @see QueryService
  * @see PdxSerializable
- * @see PeerCacheApplication
  * @see SecurityContext
  * @see Session
  * @see AbstractGemFireIntegrationTests
@@ -358,7 +357,7 @@ public class PeerCacheGemFireOperationsSessionRepositoryIntegrationTests extends
 		return this.changedContext.getAuthentication().getName();
 	}
 
-	@PeerCacheApplication(name = "PeerCacheGemFireOperationsSessionRepositoryIntegrationTests", logLevel = GEMFIRE_LOG_LEVEL)
+	@ClientCacheApplication(name = "PeerCacheGemFireOperationsSessionRepositoryIntegrationTests", logLevel = GEMFIRE_LOG_LEVEL)
 	@EnableGemFireHttpSession(regionName = SPRING_SESSION_GEMFIRE_REGION_NAME,
 		maxInactiveIntervalInSeconds = MAX_INACTIVE_INTERVAL_IN_SECONDS)
 	static class SpringSessionGemFireConfiguration {

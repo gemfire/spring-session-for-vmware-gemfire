@@ -51,22 +51,19 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.type.AnnotationMetadata;
-import org.springframework.data.gemfire.CacheFactoryBean;
 import org.springframework.data.gemfire.GemfireOperations;
 import org.springframework.data.gemfire.GemfireTemplate;
 import org.springframework.data.gemfire.GemfireUtils;
-import org.springframework.data.gemfire.IndexFactoryBean;
 import org.springframework.data.gemfire.RegionAttributesFactoryBean;
+import org.springframework.data.gemfire.client.ClientCacheFactoryBean;
 import org.springframework.data.gemfire.config.xml.GemfireConstants;
 import org.springframework.data.gemfire.util.ArrayUtils;
-import org.springframework.data.gemfire.util.RegionUtils;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
 import org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.GemFireSession;
 import org.springframework.session.data.gemfire.GemFireOperationsSessionRepository;
-import org.springframework.session.data.gemfire.config.annotation.web.http.support.SessionAttributesIndexFactoryBean;
 import org.springframework.session.data.gemfire.config.annotation.web.http.support.SessionCacheTypeAwareRegionFactoryBean;
 import org.springframework.session.data.gemfire.config.annotation.web.http.support.SpringSessionGemFireConfigurer;
 import org.springframework.session.data.gemfire.expiration.SessionExpirationPolicy;
@@ -115,10 +112,9 @@ import org.springframework.util.StringUtils;
  * @see PropertiesPropertySource
  * @see PropertySource
  * @see AnnotationMetadata
- * @see CacheFactoryBean
+ * @see ClientCacheFactoryBean
  * @see GemfireOperations
  * @see GemfireTemplate
- * @see IndexFactoryBean
  * @see RegionAttributesFactoryBean
  * @see Session
  * @see SessionRepository
@@ -923,26 +919,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 		return new SessionExpirationTimeoutAwareBeanPostProcessor(expirationTimeout);
 	}
 
-	@Bean
-	BeanPostProcessor sessionSerializerConfigurationBeanPostProcessor() {
-
-		return new BeanPostProcessor() {
-
-			@Override
-			public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-
-				if (bean instanceof CacheFactoryBean) {
-
-					SessionSerializer sessionSerializer = resolveSessionSerializer();
-
-					configureSerialization((CacheFactoryBean) bean, sessionSerializer);
-				}
-
-				return bean;
-			}
-		};
-	}
-
 	private Optional<SessionExpirationPolicy> resolveSessionExpirationPolicy() {
 
 		Optional<String> sessionExpirationPolicyBeanName = getSessionExpirationPolicyBeanName();
@@ -978,7 +954,7 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 	}
 
 	@SuppressWarnings("unchecked")
-	private void configureSerialization(CacheFactoryBean cacheFactoryBean, SessionSerializer sessionSerializer) {
+	private void configureSerialization(ClientCacheFactoryBean cacheFactoryBean, SessionSerializer sessionSerializer) {
 
 		if (sessionSerializer instanceof DataSerializer) {
 
@@ -1099,7 +1075,7 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 		}
 		else {
 			getLogger().info("Expiration is not allowed on Regions with a data management policy of {}",
-				GemfireUtils.isClient(gemfireCache) ? getClientRegionShortcut() : getServerRegionShortcut());
+				getClientRegionShortcut());
 		}
 
 		return regionAttributes;
@@ -1112,15 +1088,11 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 	 * @param gemfireCache reference to the {@link GemFireCache}.
 	 * @return a boolean indicating if a {@link Region} can be configured for {@link Region} entry
 	 * idle-timeout expiration.
-	 * @see GemFireUtils#isClient(GemFireCache)
 	 * @see GemFireUtils#isProxy(ClientRegionShortcut)
 	 * @see GemFireUtils#isProxy(RegionShortcut)
 	 */
 	boolean isExpirationAllowed(GemFireCache gemfireCache) {
-
-		return !(GemFireUtils.isClient(gemfireCache)
-			? GemFireUtils.isProxy(getClientRegionShortcut())
-			: GemFireUtils.isProxy(getServerRegionShortcut()));
+		return !GemFireUtils.isProxy(getClientRegionShortcut());
 	}
 
 	/**
@@ -1165,57 +1137,5 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 		sessionRepository.setUseDataSerialization(isUsingDataSerialization());
 
 		return sessionRepository;
-	}
-
-	/**
-	 * Defines an OQL {@link Index} bean on the {@link GemFireCache} {@link Region} storing and managing
-	 * {@link Session Sessions}, specifically on the {@literal principalName} property for quick lookup
-	 * of {@link Session Sessions} by {@literal principalName}.
-	 *
-	 * @param gemfireCache reference to the {@link GemFireCache}.
-	 * @return a {@link IndexFactoryBean} to create an OQL {@link Index} on the {@literal principalName} property
-	 * for {@link Session Sessions} stored in the {@link GemFireCache} {@link Region}.
-	 * @see IndexFactoryBean
-	 * @see GemFireCache
-	 */
-	@Bean
-	@DependsOn(DEFAULT_SESSION_REGION_NAME)
-	@Profile("!disable-spring-session-data-gemfire-indexes")
-	public IndexFactoryBean principalNameIndex(GemFireCache gemfireCache) {
-
-		IndexFactoryBean principalNameIndex = new IndexFactoryBean();
-
-		principalNameIndex.setCache(gemfireCache);
-		principalNameIndex.setName("principalNameIndex");
-		principalNameIndex.setExpression("principalName");
-		principalNameIndex.setFrom(RegionUtils.toRegionPath(getSessionRegionName()));
-		principalNameIndex.setOverride(true);
-
-		return principalNameIndex;
-	}
-
-	/**
-	 * Defines an OQL {@link Index} bean on the {@link GemFireCache} {@link Region} storing and managing
-	 * {@link Session Sessions}, specifically on all {@link Session} attributes for quick lookup and queries
-	 * on {@link Session} attribute {@link String names} with a given {@link Object value}.
-	 *
-	 * @param gemfireCache reference to the {@link GemFireCache}.
-	 * @return a {@link IndexFactoryBean} to create an OQL {@link Index} on attributes of {@link Session Sessions}
-	 * stored in the {@link GemFireCache} {@link Region}.
-	 * @see IndexFactoryBean
-	 * @see GemFireCache
-	 */
-	@Bean
-	@DependsOn(DEFAULT_SESSION_REGION_NAME)
-	@Profile("!disable-spring-session-data-gemfire-indexes")
-	public SessionAttributesIndexFactoryBean sessionAttributesIndex(GemFireCache gemfireCache) {
-
-		SessionAttributesIndexFactoryBean sessionAttributesIndex = new SessionAttributesIndexFactoryBean();
-
-		sessionAttributesIndex.setGemFireCache(gemfireCache);
-		sessionAttributesIndex.setIndexableSessionAttributes(getIndexableSessionAttributes());
-		sessionAttributesIndex.setRegionName(getSessionRegionName());
-
-		return sessionAttributesIndex;
 	}
 }

@@ -789,37 +789,6 @@ public class GemFireHttpSessionConfigurationUnitTests {
 
 	@Test
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	public void createsAndInitializesSessionRegionAttributesWithExpiration() throws Exception {
-
-		Cache mockCache = mock(Cache.class);
-
-		this.gemfireConfiguration.setMaxInactiveIntervalInSeconds(300);
-		this.gemfireConfiguration.setServerRegionShortcut(RegionShortcut.LOCAL);
-
-		RegionAttributesFactoryBean regionAttributesFactory =
-			this.gemfireConfiguration.sessionRegionAttributes(mockCache);
-
-		assertThat(regionAttributesFactory).isNotNull();
-
-		regionAttributesFactory.afterPropertiesSet();
-
-		RegionAttributes<Object, Session> sessionRegionAttributes = regionAttributesFactory.getObject();
-
-		assertThat(sessionRegionAttributes).isNotNull();
-		assertThat(sessionRegionAttributes.getKeyConstraint())
-			.isEqualTo(GemFireHttpSessionConfiguration.SESSION_REGION_KEY_CONSTRAINT);
-		assertThat(sessionRegionAttributes.getValueConstraint())
-			.isEqualTo(GemFireHttpSessionConfiguration.SESSION_REGION_VALUE_CONSTRAINT);
-
-		ExpirationAttributes entryIdleTimeoutExpiration = sessionRegionAttributes.getEntryIdleTimeout();
-
-		assertThat(entryIdleTimeoutExpiration).isNotNull();
-		assertThat(entryIdleTimeoutExpiration.getAction()).isEqualTo(ExpirationAction.INVALIDATE);
-		assertThat(entryIdleTimeoutExpiration.getTimeout()).isEqualTo(300);
-	}
-
-	@Test
-	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void createsAndInitializesSessionRegionAttributesWithoutExpiration() throws Exception {
 
 		ClientCache mockClientCache = mock(ClientCache.class);
@@ -865,22 +834,6 @@ public class GemFireHttpSessionConfigurationUnitTests {
 	}
 
 	@Test
-	public void serverExpirationIsAllowed() {
-
-		Cache mockCache = mock(Cache.class);
-
-		this.gemfireConfiguration.setClientRegionShortcut(ClientRegionShortcut.PROXY);
-		this.gemfireConfiguration.setServerRegionShortcut(RegionShortcut.REPLICATE);
-
-		assertThat(this.gemfireConfiguration.isExpirationAllowed(mockCache)).isTrue();
-
-		this.gemfireConfiguration.setClientRegionShortcut(ClientRegionShortcut.LOCAL);
-		this.gemfireConfiguration.setServerRegionShortcut(RegionShortcut.PARTITION_REDUNDANT_PERSISTENT_OVERFLOW);
-
-		assertThat(this.gemfireConfiguration.isExpirationAllowed(mockCache)).isTrue();
-	}
-
-	@Test
 	public void clientExpirationIsNotAllowed() {
 
 		ClientCache mockClientCache = mock(ClientCache.class);
@@ -894,21 +847,5 @@ public class GemFireHttpSessionConfigurationUnitTests {
 		this.gemfireConfiguration.setServerRegionShortcut(RegionShortcut.REPLICATE);
 
 		assertThat(this.gemfireConfiguration.isExpirationAllowed(mockClientCache)).isFalse();
-	}
-
-	@Test
-	public void serverExpirationIsNotAllowed() {
-
-		Cache mockCache = mock(Cache.class);
-
-		this.gemfireConfiguration.setClientRegionShortcut(ClientRegionShortcut.PROXY);
-		this.gemfireConfiguration.setServerRegionShortcut(RegionShortcut.PARTITION_PROXY);
-
-		assertThat(this.gemfireConfiguration.isExpirationAllowed(mockCache)).isFalse();
-
-		this.gemfireConfiguration.setClientRegionShortcut(ClientRegionShortcut.LOCAL);
-		this.gemfireConfiguration.setServerRegionShortcut(RegionShortcut.REPLICATE_PROXY);
-
-		assertThat(this.gemfireConfiguration.isExpirationAllowed(mockCache)).isFalse();
 	}
 }

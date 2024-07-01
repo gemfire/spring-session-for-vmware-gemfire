@@ -20,7 +20,6 @@ import org.apache.geode.cache.client.ClientCache;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.data.gemfire.config.annotation.CacheServerApplication;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
@@ -38,7 +37,6 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @see Serializable
  * @see ClientCache
  * @see AnnotationConfigApplicationContext
- * @see CacheServerApplication
  * @see ClientCacheApplication
  * @see Session
  * @see SessionRepository

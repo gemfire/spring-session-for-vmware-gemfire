@@ -93,8 +93,6 @@ public class MultiPoolClientServerGemFireOperationsSessionRepositoryIntegrationT
 	@Before
 	public void setup() {
 
-		assertThat(GemFireUtils.isClient(gemfireCache)).isTrue();
-
 		Region<Object, Session> springSessionGemFireRegion =
 			gemfireCache.getRegion(SPRING_SESSION_GEMFIRE_REGION_NAME);
 

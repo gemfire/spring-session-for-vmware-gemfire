@@ -24,7 +24,7 @@ import org.apache.geode.cache.RegionShortcut;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.gemfire.config.annotation.PeerCacheApplication;
+import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.session.Session;
 import org.springframework.session.data.gemfire.AbstractGemFireIntegrationTests;
 import org.springframework.session.data.gemfire.GemFireOperationsSessionRepository;
@@ -47,7 +47,6 @@ import org.springframework.test.context.web.WebAppConfiguration;
  * @see Test
  * @see RunWith
  * @see Region
- * @see PeerCacheApplication
  * @see Session
  * @see AbstractGemFireIntegrationTests
  * @see GemFireOperationsSessionRepository
@@ -78,7 +77,6 @@ public class EnableGemFireHttpSessionEventsIntegrationTests extends AbstractGemF
 	@Before
 	public void setup() {
 
-		assertThat(GemFireUtils.isPeer(this.gemfireCache)).isTrue();
 		assertThat(this.gemfireSessionRepository).isNotNull();
 		assertThat(this.gemfireSessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(MAX_INACTIVE_INTERVAL_IN_SECONDS);
 		assertThat(this.sessionEventListener).isNotNull();
@@ -240,7 +238,7 @@ public class EnableGemFireHttpSessionEventsIntegrationTests extends AbstractGemF
 		assertThat(sessionEvent.getSessionId()).isEqualTo(expectedSessionId);
 	}
 
-	@PeerCacheApplication(name = "EnableGemFireHttpSessionEventsIntegrationTests", logLevel = GEMFIRE_LOG_LEVEL)
+	@ClientCacheApplication(name = "EnableGemFireHttpSessionEventsIntegrationTests", logLevel = GEMFIRE_LOG_LEVEL)
 	@EnableGemFireHttpSession(
 		regionName = SPRING_SESSION_DATA_GEMFIRE_REGION_NAME,
 		maxInactiveIntervalInSeconds = MAX_INACTIVE_INTERVAL_IN_SECONDS,

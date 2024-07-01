@@ -19,7 +19,7 @@ import org.apache.geode.cache.query.Index;
 import org.apache.geode.cache.query.QueryService;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.gemfire.config.annotation.PeerCacheApplication;
+import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.session.Session;
 import org.springframework.session.data.gemfire.AbstractGemFireIntegrationTests;
 import org.springframework.session.data.gemfire.support.GemFireUtils;
@@ -55,8 +55,6 @@ public class GemFireHttpSessionJavaConfigurationTests extends AbstractGemFireInt
 
 	protected <K, V> Region<K, V> assertCacheAndRegion(Cache gemfireCache,
 			String regionName, DataPolicy dataPolicy) {
-
-		assertThat(GemFireUtils.isPeer(gemfireCache)).isTrue();
 
 		Region<K, V> region = gemfireCache.getRegion(regionName);
 
@@ -104,7 +102,7 @@ public class GemFireHttpSessionJavaConfigurationTests extends AbstractGemFireInt
 		assertThat(sessionAttributesIndex).isNull();
 	}
 
-	@PeerCacheApplication(
+	@ClientCacheApplication(
 		name = "GemFireHttpSessionJavaConfigurationTests",
 		logLevel = "error"
 	)

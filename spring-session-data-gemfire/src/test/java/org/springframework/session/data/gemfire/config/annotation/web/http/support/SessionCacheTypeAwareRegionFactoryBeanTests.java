@@ -64,20 +64,14 @@ public class SessionCacheTypeAwareRegionFactoryBeanTests {
 	private void testAfterPropertiesSetCreatesCorrectRegionForGemFireCacheType(GemFireCache expectedCache,
 			Region<Object, Session> expectedRegion) throws Exception {
 
-		this.regionFactoryBean = new SessionCacheTypeAwareRegionFactoryBean<Object, Session>() {
+		this.regionFactoryBean = new SessionCacheTypeAwareRegionFactoryBean<>() {
 
-			@Override
-			protected Region<Object, Session> newClientRegion(GemFireCache gemfireCache, String name) {
-				assertThat(gemfireCache).isSameAs(expectedCache);
-				return SessionCacheTypeAwareRegionFactoryBeanTests.this.mockClientRegion;
-			}
-
-			@Override
-			protected Region<Object, Session> newServerRegion(GemFireCache gemfireCache, String name) {
-				assertThat(gemfireCache).isSameAs(expectedCache);
-				return SessionCacheTypeAwareRegionFactoryBeanTests.this.mockServerRegion;
-			}
-		};
+      @Override
+      protected Region<Object, Session> newClientRegion(GemFireCache gemfireCache, String name) {
+        assertThat(gemfireCache).isSameAs(expectedCache);
+        return SessionCacheTypeAwareRegionFactoryBeanTests.this.mockClientRegion;
+      }
+    };
 
 		this.regionFactoryBean.setCache(expectedCache);
 		this.regionFactoryBean.afterPropertiesSet();
@@ -90,11 +84,6 @@ public class SessionCacheTypeAwareRegionFactoryBeanTests {
 	@Test
 	public void afterPropertiesSetCreatesClientRegionForClientCache() throws Exception {
 		testAfterPropertiesSetCreatesCorrectRegionForGemFireCacheType(this.mockClientCache, this.mockClientRegion);
-	}
-
-	@Test
-	public void afterPropertiesSetCreatesServerRegionForPeerCache() throws Exception {
-		testAfterPropertiesSetCreatesCorrectRegionForGemFireCacheType(this.mockCache, this.mockServerRegion);
 	}
 
 	@Test

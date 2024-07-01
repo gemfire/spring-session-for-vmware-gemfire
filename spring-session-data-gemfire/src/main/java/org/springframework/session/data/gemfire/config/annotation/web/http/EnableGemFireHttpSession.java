@@ -63,7 +63,7 @@ import org.springframework.session.web.http.SessionRepositoryFilter;
  *
  * <pre>
  * <code>
- * {@literal @PeerCacheApplication}
+ * {@literal @ClientCacheApplication}
  * {@literal @EnableGemFireHttpSession}
  * public class PeerCacheHttpSessionConfiguration {
  *

@@ -27,7 +27,6 @@ import org.apache.geode.cache.client.ClientRegionShortcut;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.gemfire.config.annotation.CacheServerApplication;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.session.Session;
 import org.springframework.session.data.gemfire.config.annotation.web.http.EnableGemFireHttpSession;
@@ -56,7 +55,6 @@ import org.springframework.util.ObjectUtils;
  * @see org.apache.geode.cache.client.Pool
  * @see org.apache.geode.cache.server.CacheServer
  * @see org.springframework.context.ConfigurableApplicationContext
- * @see CacheServerApplication
  * @see ClientCacheApplication
  * @see Session
  * @see AbstractGemFireIntegrationTests
@@ -104,8 +102,6 @@ public class ClientServerGemFireOperationsSessionRepositoryIntegrationTests exte
 
 	@Before
 	public void setup() {
-
-		assertThat(GemFireUtils.isClient(this.gemfireCache)).isTrue();
 
 		Region<Object, Session> springSessionGemFireRegion =
 			this.gemfireCache.getRegion(TEST_SESSION_REGION_NAME);
