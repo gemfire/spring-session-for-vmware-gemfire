@@ -56,30 +56,6 @@ public abstract class GemFireUtils {
 	}
 
 	/**
-	 * Determines whether the Pivotal GemFire cache is a client.
-	 *
-	 * @param gemfireCache a reference to the Pivotal GemFire cache.
-	 * @return a boolean value indicating whether the Pivotal GemFire cache is a client.
-	 * @see org.apache.geode.cache.client.ClientCache
-	 * @see GemFireCache
-	 */
-	public static boolean isClient(@Nullable GemFireCache gemfireCache) {
-		return CacheUtils.isClient(gemfireCache);
-	}
-
-	/**
-	 * Determines whether the Pivotal GemFire cache is a peer.
-	 *
-	 * @param gemFireCache a reference to the Pivotal GemFire cache.
-	 * @return a boolean value indicating whether the Pivotal GemFire cache is a peer.
-	 * @see Cache
-	 * @see GemFireCache
-	 */
-	public static boolean isPeer(@Nullable GemFireCache gemFireCache) {
-		return gemFireCache instanceof Cache && !isClient(gemFireCache);
-	}
-
-	/**
 	 * Determines whether the given {@link ClientRegionShortcut} is local only.
 	 *
 	 * @param shortcut {@link ClientRegionShortcut} to evaluate.
@@ -107,7 +83,6 @@ public abstract class GemFireUtils {
 			.map(Region::getRegionService)
 			.filter(GemFireCache.class::isInstance)
 			.map(GemFireCache.class::cast)
-			.filter(GemFireUtils::isClient)
 			.isPresent();
 	}
 

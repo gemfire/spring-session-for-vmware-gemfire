@@ -22,7 +22,7 @@ import org.apache.geode.cache.RegionAttributes;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.gemfire.config.annotation.PeerCacheApplication;
+import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.data.gemfire.tests.mock.annotation.EnableGemFireMockObjects;
 import org.springframework.session.Session;
 import org.springframework.session.data.gemfire.AbstractGemFireIntegrationTests;
@@ -45,7 +45,6 @@ import org.springframework.util.ReflectionUtils;
  * @see Region
  * @see RegionAttributes
  * @see Bean
- * @see PeerCacheApplication
  * @see EnableGemFireMockObjects
  * @see Session
  * @see AbstractGemFireIntegrationTests
@@ -123,7 +122,7 @@ public class CustomSessionExpirationConfigurationIntegrationTests extends Abstra
 		assertThat(entryIdleTimeout.getAction()).isEqualTo(ExpirationAction.INVALIDATE);
 	}
 
-	@PeerCacheApplication
+	@ClientCacheApplication
 	@EnableGemFireMockObjects
 	@EnableGemFireHttpSession(
 		maxInactiveIntervalInSeconds = 600,

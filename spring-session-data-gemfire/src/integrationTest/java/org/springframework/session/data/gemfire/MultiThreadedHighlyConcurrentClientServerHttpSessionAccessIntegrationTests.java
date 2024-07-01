@@ -33,7 +33,6 @@ import org.junit.runner.RunWith;
 import org.apache.geode.cache.DataPolicy;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 
-import org.springframework.data.gemfire.config.annotation.CacheServerApplication;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.data.gemfire.tests.util.IdentityHashCodeComparator;
 import org.springframework.session.Session;
@@ -50,7 +49,6 @@ import org.springframework.util.StringUtils;
  * @author John Blum
  * @see ExecutorService
  * @see Test
- * @see CacheServerApplication
  * @see ClientCacheApplication
  * @see Session
  * @see org.springframework.session.SessionRepository

@@ -56,8 +56,6 @@ public class GemFireHttpSessionXmlConfigurationTests extends AbstractGemFireInte
 
 	protected <K, V> Region<K, V> assertCacheAndRegion(Cache gemfireCache, String regionName, DataPolicy dataPolicy) {
 
-		assertThat(GemFireUtils.isPeer(gemfireCache)).isTrue();
-
 		Region<K, V> region = gemfireCache.getRegion(regionName);
 
 		assertRegion(region, regionName, dataPolicy);
