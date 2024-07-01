@@ -5,22 +5,18 @@
 package org.springframework.session.data.gemfire.serialization.pdx;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
+import com.vmware.gemfire.testcontainers.GemFireCluster;
 import java.io.File;
 import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.util.Map;
-
-import com.vmware.gemfire.testcontainers.GemFireCluster;
+import org.apache.geode.cache.server.CacheServer;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import org.apache.geode.cache.server.CacheServer;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
@@ -32,7 +28,6 @@ import org.springframework.session.data.gemfire.AbstractGemFireIntegrationTests;
 import org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.GemFireSession;
 import org.springframework.session.data.gemfire.GemFireOperationsSessionRepository;
 import org.springframework.session.data.gemfire.config.annotation.web.http.EnableGemFireHttpSession;
-import org.springframework.session.data.gemfire.server.GemFireServer;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
 
@@ -53,7 +48,6 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @see AbstractGemFireIntegrationTests
  * @see GemFireOperationsSessionRepository
  * @see EnableGemFireHttpSession
- * @see GemFireServer
  * @see ContextConfiguration
  * @see SpringRunner
  * @since 2.0.0

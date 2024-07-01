@@ -9,11 +9,10 @@
        xmlns:p="http://www.springframework.org/schema/p"
        xmlns:util="http://www.springframework.org/schema/util"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xsi:schemaLocation="
-	   	http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
         http://www.springframework.org/schema/gemfire https://www.springframework.org/schema/gemfire/spring-gemfire.xsd
-        http://www.springframework.org/schema/util https://www.springframework.org/schema/util/spring-util.xsd
-">
+        http://www.springframework.org/schema/util https://www.springframework.org/schema/util/spring-util.xsd   http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd">
 
     <util:properties id="gemfireProperties">
         <prop key="name">GemFireHttpSessionXmlConfigurationTests</prop>
@@ -21,11 +20,17 @@
         <prop key="log-level">warning</prop>
     </util:properties>
 
-    <gfe:cache properties-ref="gemfireProperties"/>
+    <context:property-placeholder/>
+
+    <gfe:client-cache properties-ref="gemfireProperties"/>
 
     <bean class="org.springframework.session.data.gemfire.config.annotation.web.http.GemFireHttpSessionConfiguration"
           p:indexableSessionAttributes="one, two, three" p:maxInactiveIntervalInSeconds="3600"
-          p:serverRegionShortcut="#{T(org.apache.geode.cache.RegionShortcut).LOCAL}"
+          p:clientRegionShortcut="#{T(org.apache.geode.cache.client.ClientRegionShortcut).LOCAL}"
           p:sessionRegionName="XmlExample"/>
+
+    <gfe:pool id="gemfirePool">
+        <gfe:locator host="localhost" port="${gemfire.locator.port}"/>
+    </gfe:pool>
 
 </beans>

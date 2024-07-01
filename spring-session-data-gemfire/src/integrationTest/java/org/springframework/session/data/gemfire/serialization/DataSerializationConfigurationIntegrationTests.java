@@ -5,13 +5,10 @@
 package org.springframework.session.data.gemfire.serialization;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
+import org.apache.geode.cache.client.ClientCache;
+import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import org.apache.geode.cache.GemFireCache;
-import org.apache.geode.cache.client.ClientRegionShortcut;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
@@ -27,7 +24,7 @@ import org.springframework.test.context.junit4.SpringRunner;
  * @author John Blum
  * @see Test
  * @see org.apache.geode.DataSerializer
- * @see GemFireCache
+ * @see ClientCache
  * @see ClientCacheApplication
  * @see AbstractGemFireIntegrationTests
  * @see EnableGemFireHttpSession
@@ -50,7 +47,7 @@ public class DataSerializationConfigurationIntegrationTests extends AbstractGemF
 	private SessionSerializer<?, ?, ?> dataSerializableSessionSerialzer;
 
 	@Autowired
-	private GemFireCache gemfireCache;
+	private ClientCache gemfireCache;
 
 	@Test
 	public void gemfireCachePdxSerializerIsNull() {

@@ -5,24 +5,24 @@
 
 package org.springframework.session.data.gemfire.config.annotation.web.http;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
+import com.vmware.gemfire.testcontainers.GemFireCluster;
+import java.io.IOException;
 import org.apache.geode.cache.Cache;
 import org.apache.geode.cache.DataPolicy;
 import org.apache.geode.cache.ExpirationAction;
 import org.apache.geode.cache.Region;
-import org.apache.geode.cache.RegionShortcut;
-import org.apache.geode.cache.query.Index;
-import org.apache.geode.cache.query.QueryService;
-
+import org.apache.geode.cache.client.ClientRegionShortcut;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.gemfire.config.annotation.PeerCacheApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.data.gemfire.client.PoolFactoryBean;
+import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
+import org.springframework.data.gemfire.support.ConnectionEndpoint;
 import org.springframework.session.Session;
 import org.springframework.session.data.gemfire.AbstractGemFireIntegrationTests;
-import org.springframework.session.data.gemfire.support.GemFireUtils;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -53,10 +53,21 @@ public class GemFireHttpSessionJavaConfigurationTests extends AbstractGemFireInt
 	@Autowired @SuppressWarnings("unused")
 	private Cache gemfireCache;
 
+	private static GemFireCluster gemFireCluster;
+
+	@BeforeClass
+	public static void startGemFireServer() throws IOException {
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1);
+		gemFireCluster.acceptLicense().start();
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
+	}
+
 	protected <K, V> Region<K, V> assertCacheAndRegion(Cache gemfireCache,
 			String regionName, DataPolicy dataPolicy) {
-
-		assertThat(GemFireUtils.isPeer(gemfireCache)).isTrue();
 
 		Region<K, V> region = gemfireCache.getRegion(regionName);
 
@@ -69,50 +80,26 @@ public class GemFireHttpSessionJavaConfigurationTests extends AbstractGemFireInt
 	public void gemfireCacheConfigurationIsValid() {
 
 		Region<Object, Session> example =
-			assertCacheAndRegion(this.gemfireCache, "JavaExample", DataPolicy.REPLICATE);
+			assertCacheAndRegion(this.gemfireCache, "JavaExample", DataPolicy.NORMAL);
 
 		assertEntryIdleTimeout(example, ExpirationAction.INVALIDATE, 900);
 	}
 
-	@Test
-	public void verifyGemFireExampleCacheRegionPrincipalNameIndexWasCreatedSuccessfully() {
-
-		Region<Object, Session> example =
-			assertCacheAndRegion(this.gemfireCache, "JavaExample", DataPolicy.REPLICATE);
-
-		QueryService queryService = example.getRegionService().getQueryService();
-
-		assertThat(queryService).isNotNull();
-
-		Index principalNameIndex = queryService.getIndex(example, "principalNameIndex");
-
-		assertIndex(principalNameIndex, "principalName", example.getFullPath());
-	}
-
-	@Test
-	public void verifyGemFireExampleCacheRegionSessionAttributesIndexWasNotCreated() {
-
-		Region<Object, Session> example =
-			assertCacheAndRegion(this.gemfireCache, "JavaExample", DataPolicy.REPLICATE);
-
-		QueryService queryService = example.getRegionService().getQueryService();
-
-		assertThat(queryService).isNotNull();
-
-		Index sessionAttributesIndex = queryService.getIndex(example, "sessionAttributesIndex");
-
-		assertThat(sessionAttributesIndex).isNull();
-	}
-
-	@PeerCacheApplication(
+	@ClientCacheApplication(
 		name = "GemFireHttpSessionJavaConfigurationTests",
 		logLevel = "error"
 	)
 	@EnableGemFireHttpSession(
 		maxInactiveIntervalInSeconds = 900,
 		regionName = "JavaExample",
-		serverRegionShortcut = RegionShortcut.REPLICATE
+		clientRegionShortcut = ClientRegionShortcut.LOCAL
 	)
-	static class GemFireConfiguration { }
-
+	static class GemFireConfiguration {
+		@Bean
+		PoolFactoryBean gemfirePool() {
+			PoolFactoryBean poolFactory = new PoolFactoryBean();
+			poolFactory.addServers(new ConnectionEndpoint("localhost", gemFireCluster.getLocatorPort()));
+			return poolFactory;
+		}
+	}
 }

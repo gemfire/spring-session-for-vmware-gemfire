@@ -11,22 +11,17 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Arrays;
-
-import org.junit.Test;
-
-import org.apache.geode.cache.Cache;
 import org.apache.geode.cache.DataPolicy;
-import org.apache.geode.cache.GemFireCache;
 import org.apache.geode.cache.PartitionAttributes;
 import org.apache.geode.cache.Region;
 import org.apache.geode.cache.RegionAttributes;
 import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
+import org.junit.Test;
 
 /**
  * Unit Tests for {@link GemFireUtils}.
@@ -36,7 +31,7 @@ import org.apache.geode.cache.client.ClientRegionShortcut;
  * @see org.mockito.Mock
  * @see org.mockito.Mockito
  * @see org.apache.geode.cache.Cache
- * @see org.apache.geode.cache.GemFireCache
+ * @see org.apache.geode.cache.client.ClientCache
  * @see org.apache.geode.cache.Region
  * @see org.apache.geode.cache.client.ClientCache
  * @see org.springframework.session.data.gemfire.support.GemFireUtils
@@ -69,46 +64,6 @@ public class GemFireUtilsTests {
 	@Test
 	public void closeNullCloseableReturnsFalse() {
 		assertThat(GemFireUtils.close(null)).isFalse();
-	}
-
-	@Test
-	public void clientCacheIsClient() {
-		assertThat(GemFireUtils.isClient(mock(ClientCache.class))).isTrue();
-	}
-
-	@Test
-	public void genericCacheIsNotClient() {
-		assertThat(GemFireUtils.isClient(mock(GemFireCache.class))).isFalse();
-	}
-
-	@Test
-	public void nullIsNotClient() {
-		assertThat(GemFireUtils.isClient(null)).isFalse();
-	}
-
-	@Test
-	public void peerCacheIsNotClient() {
-		assertThat(GemFireUtils.isClient(mock(Cache.class))).isFalse();
-	}
-
-	@Test
-	public void peerCacheIsPeer() {
-		assertThat(GemFireUtils.isPeer(mock(Cache.class))).isTrue();
-	}
-
-	@Test
-	public void nullIsNotPeer() {
-		assertThat(GemFireUtils.isPeer(null)).isFalse();
-	}
-
-	@Test
-	public void genericCacheIsNotPeer() {
-		assertThat(GemFireUtils.isPeer(mock(GemFireCache.class))).isFalse();
-	}
-
-	@Test
-	public void clientCacheIsNotPeer() {
-		assertThat(GemFireUtils.isPeer(mock(ClientCache.class))).isFalse();
 	}
 
 	@Test
@@ -204,49 +159,6 @@ public class GemFireUtilsTests {
 		verify(mockRegion, times(1)).getAttributes();
 		verify(mockRegion, never()).getRegionService();
 		verify(mockRegion, times(1)).hasServerProxy();
-		verify(mockRegionAttributes, times(1)).getPoolName();
-	}
-
-	@Test
-	@SuppressWarnings("rawtypes")
-	public void nonClientRegionWithPoolIsNotNonLocalClientRegion() {
-
-		GemFireCache mockGemFireCache = mock(GemFireCache.class);
-
-		Region mockRegion = mock(Region.class);
-
-		RegionAttributes mockRegionAttributes = mock(RegionAttributes.class);
-
-		when(mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
-		when(mockRegion.getRegionService()).thenReturn(mockGemFireCache);
-		when(mockRegionAttributes.getPoolName()).thenReturn("Car");
-
-		assertThat(GemFireUtils.isNonLocalClientRegion(mockRegion)).isFalse();
-
-		verify(mockRegion, times(1)).getAttributes();
-		verify(mockRegion, times(1)).getRegionService();
-		verify(mockRegionAttributes, times(1)).getPoolName();
-	}
-
-	@Test
-	@SuppressWarnings("rawtypes")
-	public void peerRegionWithServerProxyIsNotNonLocalClientRegion() {
-
-		Cache mockPeerCache = mock(Cache.class);
-
-		ServerProxyCapableRegion mockRegion = mock(ServerProxyCapableRegion.class);
-
-		RegionAttributes mockRegionAttributes = mock(RegionAttributes.class);
-
-		when(mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
-		when(mockRegion.getRegionService()).thenReturn(mockPeerCache);
-		when(mockRegion.hasServerProxy()).thenReturn(true);
-		when(mockRegionAttributes.getPoolName()).thenReturn("");
-
-		assertThat(GemFireUtils.isNonLocalClientRegion(mockRegion)).isFalse();
-
-		verify(mockRegion, times(1)).getAttributes();
-		verify(mockRegion, times(1)).getRegionService();
 		verify(mockRegionAttributes, times(1)).getPoolName();
 	}
 
