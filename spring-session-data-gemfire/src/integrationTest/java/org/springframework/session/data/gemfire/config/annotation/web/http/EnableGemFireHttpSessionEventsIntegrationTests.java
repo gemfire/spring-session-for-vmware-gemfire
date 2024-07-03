@@ -5,31 +5,32 @@
 package org.springframework.session.data.gemfire.config.annotation.web.http;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
+import com.vmware.gemfire.testcontainers.GemFireCluster;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
 import org.apache.geode.cache.DataPolicy;
 import org.apache.geode.cache.ExpirationAction;
 import org.apache.geode.cache.Region;
-import org.apache.geode.cache.RegionShortcut;
-
+import org.apache.geode.cache.client.ClientRegionShortcut;
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.gemfire.client.PoolFactoryBean;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
+import org.springframework.data.gemfire.support.ConnectionEndpoint;
 import org.springframework.session.Session;
 import org.springframework.session.data.gemfire.AbstractGemFireIntegrationTests;
 import org.springframework.session.data.gemfire.GemFireOperationsSessionRepository;
 import org.springframework.session.data.gemfire.events.SessionChangedEvent;
-import org.springframework.session.data.gemfire.support.GemFireUtils;
 import org.springframework.session.events.AbstractSessionEvent;
 import org.springframework.session.events.SessionCreatedEvent;
 import org.springframework.session.events.SessionDeletedEvent;
@@ -74,6 +75,21 @@ public class EnableGemFireHttpSessionEventsIntegrationTests extends AbstractGemF
 	@Autowired
 	private SessionEventListener sessionEventListener;
 
+	private static GemFireCluster gemFireCluster;
+
+	@BeforeClass
+	public static void startGemFireServer() throws IOException {
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+				.withGfsh(false, "create region --type=REPLICATE --name=" + SPRING_SESSION_DATA_GEMFIRE_REGION_NAME);
+
+		gemFireCluster.acceptLicense().start();
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
+	}
+
 	@Before
 	public void setup() {
 
@@ -83,7 +99,7 @@ public class EnableGemFireHttpSessionEventsIntegrationTests extends AbstractGemF
 
 		Region<Object, Session> sessionRegion = this.gemfireCache.getRegion(SPRING_SESSION_DATA_GEMFIRE_REGION_NAME);
 
-		assertRegion(sessionRegion, SPRING_SESSION_DATA_GEMFIRE_REGION_NAME, DataPolicy.REPLICATE);
+		assertRegion(sessionRegion, SPRING_SESSION_DATA_GEMFIRE_REGION_NAME, DataPolicy.NORMAL);
 		assertEntryIdleTimeout(sessionRegion, ExpirationAction.INVALIDATE, MAX_INACTIVE_INTERVAL_IN_SECONDS);
 	}
 
@@ -242,7 +258,7 @@ public class EnableGemFireHttpSessionEventsIntegrationTests extends AbstractGemF
 	@EnableGemFireHttpSession(
 		regionName = SPRING_SESSION_DATA_GEMFIRE_REGION_NAME,
 		maxInactiveIntervalInSeconds = MAX_INACTIVE_INTERVAL_IN_SECONDS,
-		serverRegionShortcut = RegionShortcut.REPLICATE
+		clientRegionShortcut = ClientRegionShortcut.LOCAL
 	)
 	@SuppressWarnings("unused")
 	static class SpringSessionGemFireConfiguration {
@@ -250,6 +266,13 @@ public class EnableGemFireHttpSessionEventsIntegrationTests extends AbstractGemF
 		@Bean
 		SessionEventListener sessionEventListener() {
 			return new SessionEventListener();
+		}
+
+		@Bean
+		PoolFactoryBean gemfirePool() {
+			PoolFactoryBean poolFactory = new PoolFactoryBean();
+			poolFactory.addLocators(new ConnectionEndpoint("localhost", gemFireCluster.getLocatorPort()));
+			return poolFactory;
 		}
 	}
 }
