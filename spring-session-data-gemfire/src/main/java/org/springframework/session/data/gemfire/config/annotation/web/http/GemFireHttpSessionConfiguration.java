@@ -5,7 +5,7 @@
 package org.springframework.session.data.gemfire.config.annotation.web.http;
 
 import static org.springframework.data.gemfire.util.RuntimeExceptionFactory.newIllegalArgumentException;
-
+import jakarta.annotation.PostConstruct;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.time.Duration;
@@ -15,9 +15,6 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
-import jakarta.annotation.PostConstruct;
-
 import org.apache.geode.DataSerializer;
 import org.apache.geode.cache.Cache;
 import org.apache.geode.cache.ExpirationAction;
@@ -31,7 +28,6 @@ import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.geode.cache.client.Pool;
 import org.apache.geode.cache.query.Index;
 import org.apache.geode.pdx.PdxSerializer;
-
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
@@ -53,7 +49,6 @@ import org.springframework.core.env.PropertySource;
 import org.springframework.core.type.AnnotationMetadata;
 import org.springframework.data.gemfire.GemfireOperations;
 import org.springframework.data.gemfire.GemfireTemplate;
-import org.springframework.data.gemfire.GemfireUtils;
 import org.springframework.data.gemfire.RegionAttributesFactoryBean;
 import org.springframework.data.gemfire.client.ClientCacheFactoryBean;
 import org.springframework.data.gemfire.config.xml.GemfireConstants;
@@ -122,7 +117,6 @@ import org.springframework.util.StringUtils;
  * @see GemFireOperationsSessionRepository
  * @see AbstractGemFireHttpSessionConfiguration
  * @see EnableGemFireHttpSession
- * @see SessionAttributesIndexFactoryBean
  * @see SessionCacheTypeAwareRegionFactoryBean
  * @see SpringSessionGemFireConfigurer
  * @see SessionExpirationPolicy
@@ -917,6 +911,26 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 		Duration expirationTimeout = Duration.ofSeconds(getMaxInactiveIntervalInSeconds());
 
 		return new SessionExpirationTimeoutAwareBeanPostProcessor(expirationTimeout);
+	}
+
+	@Bean
+	BeanPostProcessor sessionSerializerConfigurationBeanPostProcessor() {
+
+		return new BeanPostProcessor() {
+
+			@Override
+			public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+
+				if (bean instanceof ClientCacheFactoryBean) {
+
+					SessionSerializer sessionSerializer = resolveSessionSerializer();
+
+					configureSerialization((ClientCacheFactoryBean) bean, sessionSerializer);
+				}
+
+				return bean;
+			}
+		};
 	}
 
 	private Optional<SessionExpirationPolicy> resolveSessionExpirationPolicy() {

@@ -7,13 +7,9 @@ package org.springframework.session.data.gemfire.config.annotation.web.http;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.springframework.data.gemfire.util.ArrayUtils.nullSafeArray;
-
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.util.Arrays;
-
-import org.junit.Test;
-
 import org.apache.geode.DataSerializer;
 import org.apache.geode.cache.GemFireCache;
 import org.apache.geode.cache.Region;
@@ -21,7 +17,7 @@ import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.geode.cache.query.Index;
 import org.apache.geode.internal.InternalDataSerializer;
-
+import org.junit.Test;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -82,16 +78,12 @@ public class GemFireHttpSessionConfigurationIntegrationTests extends SpringAppli
 		Region<?, ?> sessionsRegion =
 			getApplicationContext().getBean(GemFireHttpSessionConfiguration.DEFAULT_SESSION_REGION_NAME, Region.class);
 
-		Index principleNameIndex = getApplicationContext().getBean("principalNameIndex", Index.class);
 
 		GemfireTemplate sessionsRegionTemplate =
 			getApplicationContext().getBean("sessionRegionTemplate", GemfireTemplate.class);
 
 		assertThat(sessionsRegion).isNotNull();
 		assertThat(sessionsRegion.getName()).isEqualTo(GemFireHttpSessionConfiguration.DEFAULT_SESSION_REGION_NAME);
-		assertThat(principleNameIndex).isNotNull();
-		assertThat(principleNameIndex.getName()).isEqualTo("principalNameIndex");
-		assertThat(principleNameIndex.getRegion()).isEqualTo(sessionsRegion);
 		assertThat(getApplicationContext().getBean(SessionRepository.class)).isInstanceOf(GemFireOperationsSessionRepository.class);
 		assertThat(sessionsRegionTemplate).isNotNull();
 		assertThat(sessionsRegionTemplate.getRegion()).isEqualTo(sessionsRegion);

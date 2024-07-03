@@ -5,28 +5,32 @@
 package org.springframework.session.data.gemfire;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
+import com.vmware.gemfire.testcontainers.GemFireCluster;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
 import org.apache.geode.cache.DataPolicy;
 import org.apache.geode.cache.ExpirationAction;
 import org.apache.geode.cache.Region;
+import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.geode.cache.query.Query;
 import org.apache.geode.cache.query.QueryService;
 import org.apache.geode.cache.query.SelectResults;
 import org.apache.geode.pdx.PdxReader;
 import org.apache.geode.pdx.PdxSerializable;
 import org.apache.geode.pdx.PdxWriter;
-
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.context.annotation.Bean;
+import org.springframework.data.gemfire.client.PoolFactoryBean;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
+import org.springframework.data.gemfire.support.ConnectionEndpoint;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContext;
@@ -65,7 +69,7 @@ import org.springframework.util.ObjectUtils;
 @ContextConfiguration
 @DirtiesContext
 @WebAppConfiguration
-public class PeerCacheGemFireOperationsSessionRepositoryIntegrationTests extends AbstractGemFireIntegrationTests {
+public class ClientCacheGemFireOperationsSessionRepositoryIntegrationTests extends AbstractGemFireIntegrationTests {
 
 	private static final int MAX_INACTIVE_INTERVAL_IN_SECONDS = 300;
 
@@ -76,6 +80,22 @@ public class PeerCacheGemFireOperationsSessionRepositoryIntegrationTests extends
 	SecurityContext context;
 
 	SecurityContext changedContext;
+
+	private static GemFireCluster gemFireCluster;
+
+	@BeforeClass
+	public static void startGemFireServer() throws IOException {
+		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+				.withClasspath(GemFireCluster.ALL_GLOB, System.getProperty("TEST_JAR_PATH"))
+				.withGfsh(false, "create region --type=PARTITION --name=" + SPRING_SESSION_GEMFIRE_REGION_NAME);
+
+		gemFireCluster.acceptLicense().start();
+	}
+
+	@AfterClass
+	public static void teardown() {
+		gemFireCluster.close();
+	}
 
 	@Before
 	public void setup() {
@@ -99,7 +119,7 @@ public class PeerCacheGemFireOperationsSessionRepositoryIntegrationTests extends
 
 		Region<Object, Session> sessionRegion = this.gemfireCache.getRegion(SPRING_SESSION_GEMFIRE_REGION_NAME);
 
-		assertRegion(sessionRegion, SPRING_SESSION_GEMFIRE_REGION_NAME, DataPolicy.PARTITION);
+		assertRegion(sessionRegion, SPRING_SESSION_GEMFIRE_REGION_NAME, DataPolicy.NORMAL);
 		assertEntryIdleTimeout(sessionRegion, ExpirationAction.INVALIDATE, MAX_INACTIVE_INTERVAL_IN_SECONDS);
 	}
 
@@ -357,10 +377,17 @@ public class PeerCacheGemFireOperationsSessionRepositoryIntegrationTests extends
 		return this.changedContext.getAuthentication().getName();
 	}
 
-	@ClientCacheApplication(name = "PeerCacheGemFireOperationsSessionRepositoryIntegrationTests", logLevel = GEMFIRE_LOG_LEVEL)
+	@ClientCacheApplication(name = "ClientCacheGemFireOperationsSessionRepositoryIntegrationTests", logLevel = GEMFIRE_LOG_LEVEL)
 	@EnableGemFireHttpSession(regionName = SPRING_SESSION_GEMFIRE_REGION_NAME,
-		maxInactiveIntervalInSeconds = MAX_INACTIVE_INTERVAL_IN_SECONDS)
+		maxInactiveIntervalInSeconds = MAX_INACTIVE_INTERVAL_IN_SECONDS,
+	clientRegionShortcut = ClientRegionShortcut.LOCAL)
 	static class SpringSessionGemFireConfiguration {
+		@Bean
+		PoolFactoryBean gemfirePool() {
+			PoolFactoryBean poolFactory = new PoolFactoryBean();
+			poolFactory.addLocators(new ConnectionEndpoint("localhost", gemFireCluster.getLocatorPort()));
+			return poolFactory;
+		}
 	}
 
 	public static class Person implements Comparable<Person>, PdxSerializable {
