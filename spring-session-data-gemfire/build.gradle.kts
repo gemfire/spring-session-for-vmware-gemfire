@@ -16,7 +16,7 @@ buildscript {
 
 plugins {
     id("java-library")
-    id("maven-publish")
+    //    id("commerical-repositories")
     alias(libs.plugins.lombok)
     alias(libs.plugins.nebula.facet)
     id("gemfire-repo-artifact-publishing")
@@ -37,12 +37,12 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.named<Javadoc>("javadoc") {
     title =
-        "Spring Session 3.2 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
+        "Spring Session 3.3 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
     isFailOnError = false
 }
 
 publishingDetails {
-    artifactName.set("spring-session-3.2-gemfire-${getGemFireBaseVersion()}")
+    artifactName.set("spring-session-3.3-gemfire-${getGemFireBaseVersion()}")
     longName.set("Spring Session VMware GemFire")
     description.set("Spring Session For VMware GemFire")
 }
@@ -107,14 +107,8 @@ sourceSets {
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
-    maven {
-        credentials {
-            username = property("gemfireRepoUsername") as String
-            password = property("gemfireRepoPassword") as String
-        }
-        url = uri("https://commercial-repo.pivotal.io/data3/gemfire-release-repo/gemfire")
-    }
     val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
     if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
         additionalMavenRepoURLs.split(",").forEach {

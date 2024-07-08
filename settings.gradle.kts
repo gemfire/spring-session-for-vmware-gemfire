@@ -9,6 +9,7 @@ import java.util.*
 pluginManagement {
     includeBuild("build-tools/gemfire-server-integration-test-plugin")
     includeBuild("build-tools/publishing")
+    includeBuild("build-tools/convention-plugins")
 }
 
 plugins {
