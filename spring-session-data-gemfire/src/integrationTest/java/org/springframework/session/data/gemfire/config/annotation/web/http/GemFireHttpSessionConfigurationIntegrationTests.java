@@ -11,9 +11,9 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.util.Arrays;
 import org.apache.geode.DataSerializer;
-import org.apache.geode.cache.GemFireCache;
 import org.apache.geode.cache.Region;
 import org.apache.geode.cache.RegionShortcut;
+import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.geode.cache.query.Index;
 import org.apache.geode.internal.InternalDataSerializer;
@@ -42,7 +42,7 @@ import org.springframework.session.data.gemfire.serialization.pdx.support.PdxSer
  * @see DataOutput
  * @see Test
  * @see org.mockito.Mockito
- * @see GemFireCache
+ * @see ClientCache
  * @see Region
  * @see Index
  * @see ConfigurableApplicationContext
@@ -130,7 +130,7 @@ public class GemFireHttpSessionConfigurationIntegrationTests extends SpringAppli
 		assertThat(configuration).isNotNull();
 		assertThat(configuration.isUsingDataSerialization()).isTrue();
 
-		GemFireCache gemfireCache = getApplicationContext().getBean(GemFireCache.class);
+		ClientCache gemfireCache = getApplicationContext().getBean(ClientCache.class);
 
 		assertThat(gemfireCache).isNotNull();
 		assertThat(gemfireCache.getPdxSerializer()).isNull();
@@ -171,7 +171,7 @@ public class GemFireHttpSessionConfigurationIntegrationTests extends SpringAppli
 		assertThat(configuration.isUsingDataSerialization()).isFalse();
 		assertThat(configuration.getSessionSerializerBeanName()).isEqualTo("TestSessionSerializer");
 
-		GemFireCache gemfireCache = getApplicationContext().getBean(GemFireCache.class);
+		ClientCache gemfireCache = getApplicationContext().getBean(ClientCache.class);
 
 		SessionSerializer testSessionSerializer =
 			getApplicationContext().getBean("TestSessionSerializer", SessionSerializer.class);

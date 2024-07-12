@@ -11,22 +11,17 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Arrays;
-
-import org.junit.Test;
-
-import org.apache.geode.cache.Cache;
 import org.apache.geode.cache.DataPolicy;
-import org.apache.geode.cache.GemFireCache;
 import org.apache.geode.cache.PartitionAttributes;
 import org.apache.geode.cache.Region;
 import org.apache.geode.cache.RegionAttributes;
 import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
+import org.junit.Test;
 
 /**
  * Unit Tests for {@link GemFireUtils}.
@@ -36,7 +31,7 @@ import org.apache.geode.cache.client.ClientRegionShortcut;
  * @see org.mockito.Mock
  * @see org.mockito.Mockito
  * @see org.apache.geode.cache.Cache
- * @see org.apache.geode.cache.GemFireCache
+ * @see org.apache.geode.cache.client.ClientCache
  * @see org.apache.geode.cache.Region
  * @see org.apache.geode.cache.client.ClientCache
  * @see org.springframework.session.data.gemfire.support.GemFireUtils

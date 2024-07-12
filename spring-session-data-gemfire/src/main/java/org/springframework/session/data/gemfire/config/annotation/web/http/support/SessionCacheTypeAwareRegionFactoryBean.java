@@ -6,14 +6,12 @@
 package org.springframework.session.data.gemfire.config.annotation.web.http.support;
 
 import java.util.Optional;
-
 import org.apache.geode.cache.Cache;
 import org.apache.geode.cache.Region;
 import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.geode.cache.client.Pool;
-
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.data.gemfire.config.annotation.support.CacheTypeAwareRegionFactoryBean;
 import org.springframework.session.Session;
@@ -28,7 +26,7 @@ import org.springframework.util.StringUtils;
  * @author John Blum
  * @param <K> the type of keys
  * @param <V> the type of values
- * @see org.apache.geode.cache.GemFireCache
+ * @see org.apache.geode.cache.client.ClientCache
  * @see Region
  * @see org.apache.geode.cache.RegionAttributes
  * @see RegionShortcut
