@@ -6,20 +6,16 @@ package org.springframework.session.data.gemfire.config.annotation.web.http.supp
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-
+import org.apache.geode.cache.Cache;
+import org.apache.geode.cache.Region;
+import org.apache.geode.cache.RegionShortcut;
+import org.apache.geode.cache.client.ClientCache;
+import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
-
-import org.apache.geode.cache.Cache;
-import org.apache.geode.cache.GemFireCache;
-import org.apache.geode.cache.Region;
-import org.apache.geode.cache.RegionShortcut;
-import org.apache.geode.cache.client.ClientCache;
-import org.apache.geode.cache.client.ClientRegionShortcut;
-
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.session.Session;
 
@@ -31,7 +27,7 @@ import org.springframework.session.Session;
  * @see org.mockito.Mock
  * @see org.mockito.Mockito
  * @see org.apache.geode.cache.Cache
- * @see org.apache.geode.cache.GemFireCache
+ * @see org.apache.geode.cache.client.ClientCache
  * @see org.apache.geode.cache.Region
  * @see org.apache.geode.cache.RegionShortcut
  * @see org.apache.geode.cache.client.ClientCache
@@ -61,13 +57,13 @@ public class SessionCacheTypeAwareRegionFactoryBeanTests {
 		this.regionFactoryBean = new SessionCacheTypeAwareRegionFactoryBean<>();
 	}
 
-	private void testAfterPropertiesSetCreatesCorrectRegionForGemFireCacheType(GemFireCache expectedCache,
+	private void testAfterPropertiesSetCreatesCorrectRegionForGemFireCacheType(ClientCache expectedCache,
 			Region<Object, Session> expectedRegion) throws Exception {
 
 		this.regionFactoryBean = new SessionCacheTypeAwareRegionFactoryBean<>() {
 
       @Override
-      protected Region<Object, Session> newClientRegion(GemFireCache gemfireCache, String name) {
+      protected Region<Object, Session> newClientRegion(ClientCache gemfireCache, String name) {
         assertThat(gemfireCache).isSameAs(expectedCache);
         return SessionCacheTypeAwareRegionFactoryBeanTests.this.mockClientRegion;
       }

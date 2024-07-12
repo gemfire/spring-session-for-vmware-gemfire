@@ -14,23 +14,19 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.data.gemfire.util.ArrayUtils.nullSafeArray;
 import static org.springframework.session.data.gemfire.serialization.data.support.DataSerializableSessionSerializerInitializer.InitializingGemFireOperationsSessionRepository;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.stream.Collectors;
-
+import org.apache.geode.DataSerializer;
+import org.apache.geode.cache.Cache;
+import org.apache.geode.cache.CacheClosedException;
+import org.apache.geode.internal.InternalDataSerializer;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
-
-import org.apache.geode.DataSerializer;
-import org.apache.geode.cache.Cache;
-import org.apache.geode.cache.CacheClosedException;
-import org.apache.geode.internal.InternalDataSerializer;
-
 import org.springframework.session.data.gemfire.AbstractGemFireIntegrationTests;
 import org.springframework.session.data.gemfire.serialization.data.provider.DataSerializableSessionAttributesSerializer;
 import org.springframework.session.data.gemfire.serialization.data.provider.DataSerializableSessionSerializer;

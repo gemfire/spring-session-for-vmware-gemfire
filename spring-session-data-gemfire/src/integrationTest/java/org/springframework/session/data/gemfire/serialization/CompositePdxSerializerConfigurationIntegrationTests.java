@@ -7,14 +7,11 @@ package org.springframework.session.data.gemfire.serialization;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-import org.apache.geode.cache.GemFireCache;
+import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.geode.pdx.PdxSerializer;
-
+import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -33,7 +30,7 @@ import org.springframework.test.context.junit4.SpringRunner;
  *
  * @author John Blum
  * @see Test
- * @see GemFireCache
+ * @see ClientCache
  * @see ClientCacheApplication
  * @see ClientCacheConfigurer
  * @see AbstractGemFireIntegrationTests
@@ -50,7 +47,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 public class CompositePdxSerializerConfigurationIntegrationTests extends AbstractGemFireIntegrationTests {
 
 	@Autowired
-	private GemFireCache gemfireCache;
+	private ClientCache gemfireCache;
 
 	@Autowired
 	@Qualifier("mockPdxSerializer")

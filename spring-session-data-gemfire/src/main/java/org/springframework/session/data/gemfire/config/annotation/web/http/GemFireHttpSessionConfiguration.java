@@ -19,7 +19,6 @@ import org.apache.geode.DataSerializer;
 import org.apache.geode.cache.Cache;
 import org.apache.geode.cache.ExpirationAction;
 import org.apache.geode.cache.ExpirationAttributes;
-import org.apache.geode.cache.GemFireCache;
 import org.apache.geode.cache.Region;
 import org.apache.geode.cache.RegionAttributes;
 import org.apache.geode.cache.RegionShortcut;
@@ -85,7 +84,7 @@ import org.springframework.util.StringUtils;
  * @see DataSerializer
  * @see Cache
  * @see ExpirationAttributes
- * @see GemFireCache
+ * @see ClientCache
  * @see Region
  * @see RegionAttributes
  * @see RegionShortcut
@@ -1024,11 +1023,11 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 	 * Defines the {@link Region} used to store and manage {@link Session} state in either a client-server
 	 * or peer-to-peer (p2p) topology.
 	 *
-	 * @param gemfireCache reference to the {@link GemFireCache}.
+	 * @param gemfireCache reference to the {@link ClientCache}.
 	 * @param sessionRegionAttributes {@link RegionAttributes} used to configure the {@link Region}.
 	 * @return a {@link SessionCacheTypeAwareRegionFactoryBean} used to configure and initialize
 	 * the cache {@link Region} used to store and manage {@link Session} state.
-	 * @see GemFireCache
+	 * @see ClientCache
 	 * @see RegionAttributes
 	 * @see #getClientRegionShortcut()
 	 * @see #getPoolName()
@@ -1036,7 +1035,7 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 	 * @see #getSessionRegionName()
 	 */
 	@Bean(name = DEFAULT_SESSION_REGION_NAME)
-	public SessionCacheTypeAwareRegionFactoryBean<Object, Session> sessionRegion(GemFireCache gemfireCache,
+	public SessionCacheTypeAwareRegionFactoryBean<Object, Session> sessionRegion(ClientCache gemfireCache,
 			@Qualifier("sessionRegionAttributes") RegionAttributes<Object, Session> sessionRegionAttributes) {
 
 		SessionCacheTypeAwareRegionFactoryBean<Object, Session> sessionRegion =
@@ -1059,17 +1058,17 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 	 * Expiration is also configured for the {@link Region} on the basis that the cache {@link Region}
 	 * is a not a proxy on either the client or server.
 	 *
-	 * @param gemfireCache reference to the {@link GemFireCache}.
+	 * @param gemfireCache reference to the {@link ClientCache}.
 	 * @return an instance of {@link RegionAttributes} used to configure and initialize cache {@link Region}
 	 * used to store and manage {@link Session} state.
 	 * @see RegionAttributesFactoryBean
-	 * @see GemFireCache
+	 * @see ClientCache
 	 * @see org.apache.geode.cache.PartitionAttributes
-	 * @see #isExpirationAllowed(GemFireCache)
+	 * @see #isExpirationAllowed(ClientCache)
 	 */
 	@Bean
 	@SuppressWarnings({ "unchecked" })
-	public RegionAttributesFactoryBean sessionRegionAttributes(GemFireCache gemfireCache) {
+	public RegionAttributesFactoryBean sessionRegionAttributes(ClientCache gemfireCache) {
 
 		RegionAttributesFactoryBean regionAttributes = new RegionAttributesFactoryBean();
 
@@ -1099,13 +1098,13 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 	 * Determines whether expiration configuration is allowed to be set on the cache {@link Region}
 	 * used to store and manage {@link Session} state.
 	 *
-	 * @param gemfireCache reference to the {@link GemFireCache}.
+	 * @param gemfireCache reference to the {@link ClientCache}.
 	 * @return a boolean indicating if a {@link Region} can be configured for {@link Region} entry
 	 * idle-timeout expiration.
 	 * @see GemFireUtils#isProxy(ClientRegionShortcut)
 	 * @see GemFireUtils#isProxy(RegionShortcut)
 	 */
-	boolean isExpirationAllowed(GemFireCache gemfireCache) {
+	boolean isExpirationAllowed(ClientCache gemfireCache) {
 		return !GemFireUtils.isProxy(getClientRegionShortcut());
 	}
 
@@ -1113,18 +1112,18 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 	 * Defines a {@link GemfireTemplate} bean used to interact with the (Client)Cache {@link Region}
 	 * used to store {@link Session} state.
 	 *
-	 * @param gemfireCache reference to the single {@link GemFireCache} instance used by the {@link GemfireTemplate}
+	 * @param gemfireCache reference to the single {@link ClientCache} instance used by the {@link GemfireTemplate}
 	 * to perform cache {@link Region} data access operations.
 	 * @return a {@link GemfireTemplate} used to interact with the (Client)Cache {@link Region}
 	 * used to store {@link Session} state.
 	 * @see GemfireTemplate
-	 * @see GemFireCache
+	 * @see ClientCache
 	 * @see Region
 	 * @see #getSessionRegionName()
 	 */
 	@Bean
 	@DependsOn(DEFAULT_SESSION_REGION_NAME)
-	public GemfireTemplate sessionRegionTemplate(GemFireCache gemfireCache) {
+	public GemfireTemplate sessionRegionTemplate(ClientCache gemfireCache) {
 		return new GemfireTemplate(gemfireCache.getRegion(getSessionRegionName()));
 	}
 
