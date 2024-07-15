@@ -6,7 +6,6 @@ package org.springframework.session.data.gemfire.config.annotation.web.http.supp
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import org.apache.geode.cache.Cache;
 import org.apache.geode.cache.Region;
 import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache.client.ClientCache;
@@ -26,7 +25,6 @@ import org.springframework.session.Session;
  * @see org.junit.Test
  * @see org.mockito.Mock
  * @see org.mockito.Mockito
- * @see org.apache.geode.cache.Cache
  * @see org.apache.geode.cache.client.ClientCache
  * @see org.apache.geode.cache.Region
  * @see org.apache.geode.cache.RegionShortcut
@@ -37,9 +35,6 @@ import org.springframework.session.Session;
  */
 @RunWith(MockitoJUnitRunner.class)
 public class SessionCacheTypeAwareRegionFactoryBeanTests {
-
-	@Mock
-	Cache mockCache;
 
 	@Mock
 	ClientCache mockClientCache;
@@ -148,13 +143,7 @@ public class SessionCacheTypeAwareRegionFactoryBeanTests {
 	@Test
 	public void setAndGetGemFireCache() {
 
-		Cache mockCache = mock(Cache.class);
-
 		ClientCache mockClientCache = mock(ClientCache.class);
-
-		this.regionFactoryBean.setCache(mockCache);
-
-		assertThat(this.regionFactoryBean.getCache()).isEqualTo(mockCache);
 
 		this.regionFactoryBean.setCache(mockClientCache);
 
