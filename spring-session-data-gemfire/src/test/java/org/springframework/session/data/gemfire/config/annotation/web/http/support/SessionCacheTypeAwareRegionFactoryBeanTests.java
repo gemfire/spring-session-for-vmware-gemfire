@@ -7,7 +7,6 @@ package org.springframework.session.data.gemfire.config.annotation.web.http.supp
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import org.apache.geode.cache.Region;
-import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.junit.Before;
@@ -200,25 +199,5 @@ public class SessionCacheTypeAwareRegionFactoryBeanTests {
 
 		assertThat(this.regionFactoryBean.getRegionName())
 			.isEqualTo(SessionCacheTypeAwareRegionFactoryBean.DEFAULT_SESSION_REGION_NAME);
-	}
-
-	@Test
-	public void setAndGetServerRegionShortcut() {
-
-		assertThat(this.regionFactoryBean.getServerRegionShortcut())
-			.isEqualTo(SessionCacheTypeAwareRegionFactoryBean.DEFAULT_SERVER_REGION_SHORTCUT);
-
-		this.regionFactoryBean.setServerRegionShortcut(RegionShortcut.LOCAL_PERSISTENT);
-
-		assertThat(this.regionFactoryBean.getServerRegionShortcut()).isEqualTo(RegionShortcut.LOCAL_PERSISTENT);
-
-		this.regionFactoryBean.setServerRegionShortcut(null);
-
-		assertThat(this.regionFactoryBean.getServerRegionShortcut())
-			.isEqualTo(SessionCacheTypeAwareRegionFactoryBean.DEFAULT_SERVER_REGION_SHORTCUT);
-
-		this.regionFactoryBean.setServerRegionShortcut(RegionShortcut.PARTITION_REDUNDANT);
-
-		assertThat(this.regionFactoryBean.getServerRegionShortcut()).isEqualTo(RegionShortcut.PARTITION_REDUNDANT);
 	}
 }

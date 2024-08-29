@@ -6,16 +6,11 @@ package org.springframework.session.data.gemfire.config.annotation.web.http;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-
 import java.util.Optional;
-
-import org.junit.After;
-import org.junit.Test;
-
-import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.geode.cache.client.Pool;
-
+import org.junit.After;
+import org.junit.Test;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -80,10 +75,8 @@ public class PropertyBasedGemFireHttpSessionConfigurationIntegrationTests extend
 
 		assertThat(sessionConfiguration).isNotNull();
 		assertThat(sessionConfiguration.getClientRegionShortcut()).isEqualTo(ClientRegionShortcut.LOCAL);
-		assertThat(sessionConfiguration.getIndexableSessionAttributes()).containsExactly("one", "two");
 		assertThat(sessionConfiguration.getMaxInactiveIntervalInSeconds()).isEqualTo(900);
 		assertThat(sessionConfiguration.getPoolName()).isEqualTo("Swimming");
-		assertThat(sessionConfiguration.getServerRegionShortcut()).isEqualTo(RegionShortcut.LOCAL);
 		assertThat(sessionConfiguration.getSessionExpirationPolicyBeanName().orElse(null)).isEqualTo("TestSessionExpirationPolicy");
 		assertThat(sessionConfiguration.getSessionRegionName()).isEqualTo("AnnotationAttributeRegionName");
 		assertThat(sessionConfiguration.getSessionSerializerBeanName()).isEqualTo("TestSessionSerializer");
@@ -105,10 +98,8 @@ public class PropertyBasedGemFireHttpSessionConfigurationIntegrationTests extend
 
 		assertThat(sessionConfiguration).isNotNull();
 		assertThat(sessionConfiguration.getClientRegionShortcut()).isEqualTo(ClientRegionShortcut.LOCAL);
-		assertThat(sessionConfiguration.getIndexableSessionAttributes()).containsExactly("two", "four");
 		assertThat(sessionConfiguration.getMaxInactiveIntervalInSeconds()).isEqualTo(900);
 		assertThat(sessionConfiguration.getPoolName()).isEqualTo("Dead");
-		assertThat(sessionConfiguration.getServerRegionShortcut()).isEqualTo(RegionShortcut.LOCAL);
 		assertThat(sessionConfiguration.getSessionExpirationPolicyBeanName().orElse(null)).isEqualTo("MockSessionExpirationPolicy");
 		assertThat(sessionConfiguration.getSessionRegionName()).isEqualTo("TestRegionName");
 		assertThat(sessionConfiguration.getSessionSerializerBeanName()).isEqualTo("TestSessionSerializer");
@@ -120,7 +111,6 @@ public class PropertyBasedGemFireHttpSessionConfigurationIntegrationTests extend
 		MockPropertySource testPropertySource = new MockPropertySource("TestProperties")
 			.withProperty("spring.session.data.gemfire.cache.client.pool.name", "Dead")
 			.withProperty("spring.session.data.gemfire.cache.client.region.shortcut", ClientRegionShortcut.CACHING_PROXY.name())
-			.withProperty("spring.session.data.gemfire.cache.server.region.shortcut", RegionShortcut.REPLICATE_PERSISTENT_OVERFLOW.name())
 			.withProperty("spring.session.data.gemfire.session.attributes.indexable", "firstName, lastName")
 			.withProperty("spring.session.data.gemfire.session.expiration.bean-name", "MockSessionExpirationPolicy")
 			.withProperty("spring.session.data.gemfire.session.expiration.max-inactive-interval-seconds", "3600")
@@ -134,10 +124,8 @@ public class PropertyBasedGemFireHttpSessionConfigurationIntegrationTests extend
 
 		assertThat(sessionConfiguration).isNotNull();
 		assertThat(sessionConfiguration.getClientRegionShortcut()).isEqualTo(ClientRegionShortcut.CACHING_PROXY);
-		assertThat(sessionConfiguration.getIndexableSessionAttributes()).containsExactly("firstName", "lastName");
 		assertThat(sessionConfiguration.getMaxInactiveIntervalInSeconds()).isEqualTo(3600);
 		assertThat(sessionConfiguration.getPoolName()).isEqualTo("Dead");
-		assertThat(sessionConfiguration.getServerRegionShortcut()).isEqualTo(RegionShortcut.REPLICATE_PERSISTENT_OVERFLOW);
 		assertThat(sessionConfiguration.getSessionExpirationPolicyBeanName().orElse(null)).isEqualTo("MockSessionExpirationPolicy");
 		assertThat(sessionConfiguration.getSessionRegionName()).isEqualTo("PropertyRegionName");
 		assertThat(sessionConfiguration.getSessionSerializerBeanName()).isEqualTo("MockSessionSerializer");
@@ -146,11 +134,9 @@ public class PropertyBasedGemFireHttpSessionConfigurationIntegrationTests extend
 	@ClientCacheApplication
 	@EnableGemFireHttpSession(
 		clientRegionShortcut = ClientRegionShortcut.LOCAL,
-		indexableSessionAttributes = { "one", "two" },
 		maxInactiveIntervalInSeconds = 900,
 		poolName = "Swimming",
 		regionName = "AnnotationAttributeRegionName",
-		serverRegionShortcut = RegionShortcut.LOCAL,
 		sessionExpirationPolicyBeanName = "TestSessionExpirationPolicy",
 		sessionSerializerBeanName = "TestSessionSerializer"
 	)

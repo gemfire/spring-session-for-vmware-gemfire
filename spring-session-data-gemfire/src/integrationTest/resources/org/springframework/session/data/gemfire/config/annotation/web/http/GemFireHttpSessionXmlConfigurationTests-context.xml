@@ -25,7 +25,7 @@
     <gfe:client-cache properties-ref="gemfireProperties"/>
 
     <bean class="org.springframework.session.data.gemfire.config.annotation.web.http.GemFireHttpSessionConfiguration"
-          p:indexableSessionAttributes="one, two, three" p:maxInactiveIntervalInSeconds="3600"
+           p:maxInactiveIntervalInSeconds="3600"
           p:clientRegionShortcut="#{T(org.apache.geode.cache.client.ClientRegionShortcut).LOCAL}"
           p:sessionRegionName="XmlExample"/>
 

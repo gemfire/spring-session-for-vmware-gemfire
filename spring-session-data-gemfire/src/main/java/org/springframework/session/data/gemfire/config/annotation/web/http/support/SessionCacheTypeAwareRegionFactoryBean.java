@@ -6,7 +6,6 @@
 package org.springframework.session.data.gemfire.config.annotation.web.http.support;
 
 import java.util.Optional;
-import org.apache.geode.cache.Cache;
 import org.apache.geode.cache.Region;
 import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache.client.ClientCache;
@@ -45,9 +44,6 @@ public class SessionCacheTypeAwareRegionFactoryBean<K, V> extends CacheTypeAware
 
 	protected static final ClientRegionShortcut DEFAULT_CLIENT_REGION_SHORTCUT =
 		GemFireHttpSessionConfiguration.DEFAULT_CLIENT_REGION_SHORTCUT;
-
-	protected static final RegionShortcut DEFAULT_SERVER_REGION_SHORTCUT =
-		GemFireHttpSessionConfiguration.DEFAULT_SERVER_REGION_SHORTCUT;
 
 	protected static final String DEFAULT_POOL_NAME =
 		GemFireHttpSessionConfiguration.DEFAULT_POOL_NAME;
@@ -121,22 +117,5 @@ public class SessionCacheTypeAwareRegionFactoryBean<K, V> extends CacheTypeAware
 	@Override
 	public String resolveRegionName() {
 		return getRegionName();
-	}
-
-	/**
-	 * Returns the {@link Region} data management policy used by the Apache Geode/Pivotal GemFire peer {@link Cache}
-	 * to manage {@link Session} state.
-	 *
-	 * Defaults to {@link RegionShortcut#PARTITION}.
-	 *
-	 * @return a {@link RegionShortcut} specifying the peer {@link Region} data management policy
-	 * to manage {@link Session} state.
-	 * @see RegionShortcut
-	 */
-	@Override
-	public RegionShortcut getServerRegionShortcut() {
-
-		return Optional.ofNullable(super.getServerRegionShortcut())
-			.orElse(DEFAULT_SERVER_REGION_SHORTCUT);
 	}
 }

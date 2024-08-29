@@ -6,14 +6,12 @@ package org.springframework.session.data.gemfire.config.annotation.web.http.supp
 
 import java.lang.annotation.Annotation;
 import java.util.Properties;
-
 import org.apache.geode.cache.Cache;
 import org.apache.geode.cache.Region;
 import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.geode.cache.client.Pool;
-
 import org.springframework.session.Session;
 import org.springframework.session.data.gemfire.config.annotation.web.http.GemFireHttpSessionConfiguration;
 import org.springframework.session.data.gemfire.expiration.SessionExpirationPolicy;
@@ -87,21 +85,6 @@ public interface SpringSessionGemFireConfigurer {
 	}
 
 	/**
-	 * Identifies the {@link Session} attributes by name that will be indexed for query operations.
-	 *
-	 * For instance, find all {@link Session Sessions} in Apache Geode or Pivotal GemFire having attribute A
-	 * defined with value X.
-	 *
-	 * Defaults to empty {@link String} array.
-	 *
-	 * @return an array of {@link String Strings} identifying the names of {@link Session} attributes to index.
-	 * @see GemFireHttpSessionConfiguration#DEFAULT_INDEXABLE_SESSION_ATTRIBUTES
-	 */
-	default String[] getIndexableSessionAttributes() {
-		return GemFireHttpSessionConfiguration.DEFAULT_INDEXABLE_SESSION_ATTRIBUTES;
-	}
-
-	/**
 	 * Defines the maximum interval in seconds that a {@link Session} can remain inactive before it expires.
 	 *
 	 * Defaults to {@literal 1800} seconds, or {@literal 30} minutes.
@@ -142,20 +125,6 @@ public interface SpringSessionGemFireConfigurer {
 	 */
 	default String getRegionName() {
 		return GemFireHttpSessionConfiguration.DEFAULT_SESSION_REGION_NAME;
-	}
-
-	/**
-	 * Defines the {@link Cache} {@link Region} data management policy.
-	 *
-	 * Defaults to {@link RegionShortcut#PARTITION}.
-	 *
-	 * @return a {@link RegionShortcut} used to specify and configure the {@link Cache} {@link Region}
-	 * data management policy.
-	 * @see GemFireHttpSessionConfiguration#DEFAULT_SERVER_REGION_SHORTCUT
-	 * @see RegionShortcut
-	 */
-	default RegionShortcut getServerRegionShortcut() {
-		return GemFireHttpSessionConfiguration.DEFAULT_SERVER_REGION_SHORTCUT;
 	}
 
 	/**

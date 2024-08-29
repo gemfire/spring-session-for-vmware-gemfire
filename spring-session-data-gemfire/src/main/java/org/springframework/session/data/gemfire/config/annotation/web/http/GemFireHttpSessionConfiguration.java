@@ -25,7 +25,6 @@ import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.geode.cache.client.Pool;
-import org.apache.geode.cache.query.Index;
 import org.apache.geode.pdx.PdxSerializer;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
@@ -91,7 +90,6 @@ import org.springframework.util.StringUtils;
  * @see ClientCache
  * @see ClientRegionShortcut
  * @see Pool
- * @see Index
  * @see PdxSerializer
  * @see BeanPostProcessor
  * @see Bean
@@ -170,12 +168,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 	public static final IsDirtyPredicate DEFAULT_IS_DIRTY_PREDICATE = DeltaAwareDirtyPredicate.INSTANCE;
 
 	/**
-	 * Default {@link RegionShortcut} used to configure the data management policy of the {@link Cache} {@link Region}
-	 * that will store {@link Session} state.
-	 */
-	public static final RegionShortcut DEFAULT_SERVER_REGION_SHORTCUT = RegionShortcut.PARTITION;
-
-	/**
 	 * {@link SpringSessionGemFireConfigurer} {@link Class Interface} {@link Method} {@link String Names}
 	 */
 	public static final String CONFIGURER_GET_CLIENT_REGION_SHORTCUT_METHOD_NAME =
@@ -183,9 +175,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 
 	public static final String CONFIGURER_GET_EXPOSE_CONFIGURATION_IN_PROPERTIES_METHOD_NAME =
 		findByMethodName(SpringSessionGemFireConfigurer.class, "getExposeConfigurationAsProperties");
-
-	public static final String CONFIGURER_GET_INDEXABLE_SESSION_ATTRIBUTES_METHOD_NAME =
-		findByMethodName(SpringSessionGemFireConfigurer.class, "getIndexableSessionAttributes");
 
 	public static final String CONFIGURER_GET_MAX_INACTIVE_INTERVAL_IN_SECONDS_METHOD_NAME =
 		findByMethodName(SpringSessionGemFireConfigurer.class, "getMaxInactiveIntervalInSeconds");
@@ -195,9 +184,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 
 	public static final String CONFIGURER_GET_REGION_NAME_METHOD_NAME =
 		findByMethodName(SpringSessionGemFireConfigurer.class, "getRegionName");
-
-	public static final String CONFIGURER_GET_SERVER_REGION_SHORTCUT_METHOD_NAME =
-		findByMethodName(SpringSessionGemFireConfigurer.class, "getServerRegionShortcut");
 
 	public static final String CONFIGURER_GET_SESSION_EXPIRATION_POLICY_BEAN_NAME_METHOD_NAME =
 		findByMethodName(SpringSessionGemFireConfigurer.class, "getSessionExpirationPolicyBeanName");
@@ -236,10 +222,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 	protected static final String SPRING_SESSION_GEMFIRE_PROPERTY_SOURCE =
 		GemFireHttpSessionConfiguration.class.getName().concat(".PROPERTY_SOURCE");
 
-	/**
-	 * Defaults names of all {@link Session} attributes that will be indexed by Apache Geode.
-	 */
-	public static final String[] DEFAULT_INDEXABLE_SESSION_ATTRIBUTES = {};
 
 	private boolean exposeConfigurationAsProperties = DEFAULT_EXPOSE_CONFIGURATION_AS_PROPERTIES;
 	private boolean usingDataSerialization = DEFAULT_USE_DATA_SERIALIZATION;
@@ -250,8 +232,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 
 	private IsDirtyPredicate dirtyPredicate = DEFAULT_IS_DIRTY_PREDICATE;
 
-	private RegionShortcut serverRegionShortcut = DEFAULT_SERVER_REGION_SHORTCUT;
-
 	private String poolName = DEFAULT_POOL_NAME;
 
 	private String sessionExpirationPolicyBeanName = DEFAULT_SESSION_EXPIRATION_POLICY_BEAN_NAME;
@@ -259,8 +239,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 	private String sessionRegionName = DEFAULT_SESSION_REGION_NAME;
 
 	private String sessionSerializerBeanName = DEFAULT_SESSION_SERIALIZER_BEAN_NAME;
-
-	private String[] indexableSessionAttributes = DEFAULT_INDEXABLE_SESSION_ATTRIBUTES;
 
 	private static @NonNull String findByMethodName(@NonNull Class<?> type, @NonNull String methodName) {
 
@@ -365,30 +343,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 	}
 
 	/**
- 	* Sets the names of all {@link Session} attributes that will be indexed.
-	 *
-	 * @param indexableSessionAttributes an array of {@link String Strings} containing the names
-	 * of all {@link Session} attributes for which an Index will be created.
-	 * @see EnableGemFireHttpSession#indexableSessionAttributes()
-	 */
-	public void setIndexableSessionAttributes(String[] indexableSessionAttributes) {
-		this.indexableSessionAttributes = indexableSessionAttributes;
-	}
-
-	/**
-	 * Get the names of all {@link Session} attributes that will be indexed.
-	 *
-	 * @return an array of {@link String Strings} containing the names of all {@link Session} attributes
-	 * for which an Index will be created. Defaults to an empty array if unspecified.
-	 */
-	public String[] getIndexableSessionAttributes() {
-
-		return this.indexableSessionAttributes != null
-			? this.indexableSessionAttributes
-			: DEFAULT_INDEXABLE_SESSION_ATTRIBUTES;
-	}
-
-	/**
 	 * Configures the {@link IsDirtyPredicate} strategy interface, as a bean from the Spring context, used to
 	 * determine whether the users' application domain objects are dirty or not.
 	 *
@@ -462,38 +416,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 		return StringUtils.hasText(this.poolName)
 			? this.poolName
 			: DEFAULT_POOL_NAME;
-	}
-
-	/**
-	 * Sets the {@link RegionShortcut} used to configure the data management policy of the {@link Cache} {@link Region}
-	 * that will store {@link Session} state.
-	 *
-	 * Defaults to {@link RegionShortcut#PARTITION}.
-	 *
-	 * @param shortcut {@link RegionShortcut} used to configure the data management policy
-	 * of the {@link Cache} {@link Region}.
-	 * @see EnableGemFireHttpSession#serverRegionShortcut()
-	 * @see RegionShortcut
-	 */
-	public void setServerRegionShortcut(RegionShortcut shortcut) {
-		this.serverRegionShortcut = shortcut;
-	}
-
-	/**
-	 * Gets the {@link RegionShortcut} used to configure the data management policy of the {@link Cache} {@link Region}
-	 * that will store {@link Session} state.
-	 *
-	 * Defaults to {@link RegionShortcut#PARTITION}.
-	 *
-	 * @return the {@link RegionShortcut} used to configure the data management policy
-	 * of the {@link Cache} {@link Region}.
-	 * @see RegionShortcut
-	 */
-	public RegionShortcut getServerRegionShortcut() {
-
-		return this.serverRegionShortcut != null
-			? this.serverRegionShortcut
-			: DEFAULT_SERVER_REGION_SHORTCUT;
 	}
 
 	/**
@@ -628,10 +550,8 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 		// and well-known, documented {@link Properties}.
 		configureClientRegionShortcut(enableGemFireHttpSessionAttributes);
 		configureExposeConfigurationAsProperties(enableGemFireHttpSessionAttributes);
-		configureIndexedSessionAttributes(enableGemFireHttpSessionAttributes);
 		configureMaxInactiveIntervalInSeconds(enableGemFireHttpSessionAttributes);
 		configurePoolName(enableGemFireHttpSessionAttributes);
-		configureServerRegionShortcut(enableGemFireHttpSessionAttributes);
 		configureSessionExpirationPolicyBeanName(enableGemFireHttpSessionAttributes);
 		configureSessionRegionName(enableGemFireHttpSessionAttributes);
 		configureSessionSerializerBeanName(enableGemFireHttpSessionAttributes);
@@ -665,15 +585,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 			defaultExposeConfigurationAsProperties));
 	}
 
-	private void configureIndexedSessionAttributes(AnnotationAttributes enableGemFireHttpSessionAttributes) {
-
-		String[] defaultIndexedSessionAttributes =
-			enableGemFireHttpSessionAttributes.getStringArray("indexableSessionAttributes");
-
-		setIndexableSessionAttributes(resolveProperty(indexedSessionAttributesPropertyName(),
-			resolveProperty(indexableSessionAttributesPropertyName(), defaultIndexedSessionAttributes)));
-	}
-
 	private void configureMaxInactiveIntervalInSeconds(AnnotationAttributes enableGemFireHttpSessionAttributes) {
 
 		Integer defaultMaxInactiveIntervalInSeconds =
@@ -688,15 +599,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 		String defaultPoolName = enableGemFireHttpSessionAttributes.getString("poolName");
 
 		setPoolName(resolveProperty(poolNamePropertyName(), defaultPoolName));
-	}
-
-	private void configureServerRegionShortcut(AnnotationAttributes enableGemFireHttpSessionAttributes) {
-
-		RegionShortcut defaultServerRegionShortcut =
-			enableGemFireHttpSessionAttributes.getEnum("serverRegionShortcut");
-
-		setServerRegionShortcut(resolveProperty(serverRegionShortcutPropertyName(), RegionShortcut.class,
-			defaultServerRegionShortcut));
 	}
 
 	private void configureSessionExpirationPolicyBeanName(AnnotationAttributes enableGemFireHttpSessionAttributes) {
@@ -736,10 +638,8 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 		resolveSpringSessionGemFireConfigurer()
 			.map(this::applyClientRegionShortcut)
 			.map(this::applyExposeConfigurationAsProperties)
-			.map(this::applyIndexableSessionAttributes)
 			.map(this::applyMaxInactiveIntervalInSeconds)
 			.map(this::applyPoolName)
-			.map(this::applyServerRegionShortcut)
 			.map(this::applySessionExpirationPolicyBeanName)
 			.map(this::applySessionRegionName)
 			.map(this::applySessionSerializerBeanName);
@@ -790,13 +690,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 				SpringSessionGemFireConfigurer::getExposeConfigurationAsProperties, this::setExposeConfigurationAsProperties);
 	}
 
-	private SpringSessionGemFireConfigurer applyIndexableSessionAttributes(SpringSessionGemFireConfigurer configurer) {
-
-		return applySpringSessionGemFireConfigurerConfiguration(configurer,
-			CONFIGURER_GET_INDEXABLE_SESSION_ATTRIBUTES_METHOD_NAME,
-				SpringSessionGemFireConfigurer::getIndexableSessionAttributes, this::setIndexableSessionAttributes);
-	}
-
 	private SpringSessionGemFireConfigurer applyMaxInactiveIntervalInSeconds(SpringSessionGemFireConfigurer configurer) {
 
 		return applySpringSessionGemFireConfigurerConfiguration(configurer,
@@ -809,13 +702,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 		return applySpringSessionGemFireConfigurerConfiguration(configurer,
 			CONFIGURER_GET_POOL_NAME_METHOD_NAME,
 				SpringSessionGemFireConfigurer::getPoolName, this::setPoolName);
-	}
-
-	private SpringSessionGemFireConfigurer applyServerRegionShortcut(SpringSessionGemFireConfigurer configurer) {
-
-		return applySpringSessionGemFireConfigurerConfiguration(configurer,
-			CONFIGURER_GET_SERVER_REGION_SHORTCUT_METHOD_NAME,
-				SpringSessionGemFireConfigurer::getServerRegionShortcut, this::setServerRegionShortcut);
 	}
 
 	private SpringSessionGemFireConfigurer applySessionExpirationPolicyBeanName(SpringSessionGemFireConfigurer configurer) {
@@ -873,22 +759,12 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 					properties.setProperty(exposeConfigurationAsPropertiesPropertyName(),
 						String.valueOf(isExposeConfigurationAsProperties()));
 
-					// TODO: deprecate and remove indexableSessionAttributes
-					properties.setProperty(indexableSessionAttributesPropertyName(),
-						StringUtils.arrayToCommaDelimitedString(getIndexableSessionAttributes()));
-
-					properties.setProperty(indexedSessionAttributesPropertyName(),
-						StringUtils.arrayToCommaDelimitedString(getIndexableSessionAttributes()));
-
 					properties.setProperty(maxInactiveIntervalInSecondsPropertyName(),
 						String.valueOf(getMaxInactiveIntervalInSeconds()));
 
 					properties.setProperty(poolNamePropertyName(), getPoolName());
 
 					properties.setProperty(sessionRegionNamePropertyName(), getSessionRegionName());
-
-					properties.setProperty(serverRegionShortcutPropertyName(),
-						getServerRegionShortcut().name());
 
 					getSessionExpirationPolicyBeanName()
 						.ifPresent(it -> properties.setProperty(sessionExpirationPolicyBeanNamePropertyName(), it));
@@ -1031,7 +907,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 	 * @see RegionAttributes
 	 * @see #getClientRegionShortcut()
 	 * @see #getPoolName()
-	 * @see #getServerRegionShortcut()
 	 * @see #getSessionRegionName()
 	 */
 	@Bean(name = DEFAULT_SESSION_REGION_NAME)
@@ -1046,7 +921,6 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 		sessionRegion.setClientRegionShortcut(getClientRegionShortcut());
 		sessionRegion.setPoolName(getPoolName());
 		sessionRegion.setRegionName(getSessionRegionName());
-		sessionRegion.setServerRegionShortcut(getServerRegionShortcut());
 
 		return sessionRegion;
 	}

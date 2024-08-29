@@ -12,7 +12,6 @@ import java.io.DataOutput;
 import java.util.Arrays;
 import org.apache.geode.DataSerializer;
 import org.apache.geode.cache.Region;
-import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.geode.cache.query.Index;
@@ -197,11 +196,9 @@ public class GemFireHttpSessionConfigurationIntegrationTests extends SpringAppli
 
 		assertThat(properties).isNotNull();
 		assertThat(properties.clientRegionShortcut()).isEqualTo(ClientRegionShortcut.LOCAL);
-		assertThat(properties.indexableSessionAttributes()).containsExactly("AttributeOne", "AttributeTwo");
 		assertThat(properties.maxInactiveIntervalInSeconds()).isEqualTo(300);
 		assertThat(properties.poolName()).isEqualTo("DEFAULT");
 		assertThat(properties.regionName()).isEqualTo("Sessions");
-		assertThat(properties.serverRegionShortcut()).isEqualTo(RegionShortcut.REPLICATE);
 		assertThat(properties.sessionExpirationPolicyBeanName()).isEqualTo("MockSessionExpirationPolicy");
 		assertThat(properties.sessionSerializerBeanName()).isEqualTo("MockSessionSerializer");
 	}
@@ -215,11 +212,9 @@ public class GemFireHttpSessionConfigurationIntegrationTests extends SpringAppli
 	@EnableGemFireHttpSession(
 		clientRegionShortcut = ClientRegionShortcut.LOCAL,
 		exposeConfigurationAsProperties = true,
-		indexableSessionAttributes = { "AttributeOne", "AttributeTwo" },
 		maxInactiveIntervalInSeconds = 300,
 		poolName = "DEFAULT",
 		regionName = "Sessions",
-		serverRegionShortcut = RegionShortcut.REPLICATE,
 		sessionExpirationPolicyBeanName = "MockSessionExpirationPolicy",
 		sessionSerializerBeanName = "MockSessionSerializer"
 	)
@@ -240,11 +235,9 @@ public class GemFireHttpSessionConfigurationIntegrationTests extends SpringAppli
 		@Bean("SpringSessionGemFireProperties")
 		SpringSessionGemFireProperties springSessionGemFireProperties(
 			@Value("${spring.session.data.gemfire.cache.client.region.shortcut}") ClientRegionShortcut clientRegionShortcut,
-			@Value("${spring.session.data.gemfire.session.attributes.indexed}") String[] indexedSessionAttributes,
 			@Value("${spring.session.data.gemfire.session.expiration.max-inactive-interval-seconds}") int maxInactiveIntervalInSeconds,
 			@Value("${spring.session.data.gemfire.cache.client.pool.name}") String poolName,
 			@Value("${spring.session.data.gemfire.session.region.name}") String regionName,
-			@Value("${spring.session.data.gemfire.cache.server.region.shortcut}") RegionShortcut serverRegionShortcut,
 			@Value("${spring.session.data.gemfire.session.expiration.bean-name}") String sessionExpirationPolicyBeanName,
 			@Value("${spring.session.data.gemfire.session.serializer.bean-name}") String sessionSerializerBeanName) {
 
@@ -253,11 +246,6 @@ public class GemFireHttpSessionConfigurationIntegrationTests extends SpringAppli
 				@Override
 				public ClientRegionShortcut clientRegionShortcut() {
 					return clientRegionShortcut;
-				}
-
-				@Override
-				public String[] indexableSessionAttributes() {
-					return indexedSessionAttributes;
 				}
 
 				@Override
@@ -273,11 +261,6 @@ public class GemFireHttpSessionConfigurationIntegrationTests extends SpringAppli
 				@Override
 				public String regionName() {
 					return regionName;
-				}
-
-				@Override
-				public RegionShortcut serverRegionShortcut() {
-					return serverRegionShortcut;
 				}
 
 				@Override
@@ -328,15 +311,11 @@ public class GemFireHttpSessionConfigurationIntegrationTests extends SpringAppli
 
 		ClientRegionShortcut clientRegionShortcut();
 
-		String[] indexableSessionAttributes();
-
 		int maxInactiveIntervalInSeconds();
 
 		String poolName();
 
 		String regionName();
-
-		RegionShortcut serverRegionShortcut();
 
 		String sessionExpirationPolicyBeanName();
 

@@ -28,7 +28,6 @@ import org.apache.geode.cache.ExpirationAction;
 import org.apache.geode.cache.ExpirationAttributes;
 import org.apache.geode.cache.Region;
 import org.apache.geode.cache.RegionAttributes;
-import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.junit.Before;
@@ -46,7 +45,6 @@ import org.springframework.core.env.StandardEnvironment;
 import org.springframework.core.type.AnnotationMetadata;
 import org.springframework.data.gemfire.GemfireTemplate;
 import org.springframework.data.gemfire.RegionAttributesFactoryBean;
-import org.springframework.data.gemfire.util.ArrayUtils;
 import org.springframework.session.Session;
 import org.springframework.session.data.gemfire.GemFireOperationsSessionRepository;
 import org.springframework.session.data.gemfire.config.annotation.web.http.support.SessionCacheTypeAwareRegionFactoryBean;
@@ -188,28 +186,6 @@ public class GemFireHttpSessionConfigurationUnitTests {
 	}
 
 	@Test
-	public void setAndGetIndexedSessionAttributes() {
-
-		assertThat(this.gemfireConfiguration.getIndexableSessionAttributes()).isEmpty();
-
-		this.gemfireConfiguration.setIndexableSessionAttributes(ArrayUtils.asArray("one", "two"));
-
-		assertThat(this.gemfireConfiguration.getIndexableSessionAttributes()).containsExactly("one", "two");
-
-		this.gemfireConfiguration.setIndexableSessionAttributes(new String[0]);
-
-		assertThat(this.gemfireConfiguration.getIndexableSessionAttributes()).isEmpty();
-
-		this.gemfireConfiguration.setIndexableSessionAttributes(ArrayUtils.asArray("two"));
-
-		assertThat(this.gemfireConfiguration.getIndexableSessionAttributes()).containsExactly("two");
-
-		this.gemfireConfiguration.setIndexableSessionAttributes(null);
-
-		assertThat(this.gemfireConfiguration.getIndexableSessionAttributes()).isEmpty();
-	}
-
-	@Test
 	public void setAndGetIsDirtyPredicate() {
 
 		assertThat(this.gemfireConfiguration.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
@@ -276,23 +252,6 @@ public class GemFireHttpSessionConfigurationUnitTests {
 
 		assertThat(this.gemfireConfiguration.getPoolName())
 			.isEqualTo(GemFireHttpSessionConfiguration.DEFAULT_POOL_NAME);
-	}
-
-	@Test
-	public void setAndGetServerRegionShortcut() {
-
-		assertThat(this.gemfireConfiguration.getServerRegionShortcut())
-			.isEqualTo(GemFireHttpSessionConfiguration.DEFAULT_SERVER_REGION_SHORTCUT);
-
-		this.gemfireConfiguration.setServerRegionShortcut(RegionShortcut.REPLICATE_PERSISTENT);
-
-		assertThat(this.gemfireConfiguration.getServerRegionShortcut())
-			.isEqualTo(RegionShortcut.REPLICATE_PERSISTENT);
-
-		this.gemfireConfiguration.setServerRegionShortcut(null);
-
-		assertThat(this.gemfireConfiguration.getServerRegionShortcut())
-			.isEqualTo(GemFireHttpSessionConfiguration.DEFAULT_SERVER_REGION_SHORTCUT);
 	}
 
 	@Test
@@ -420,10 +379,8 @@ public class GemFireHttpSessionConfigurationUnitTests {
 
 		annotationAttributes.put("clientRegionShortcut", ClientRegionShortcut.CACHING_PROXY);
 		annotationAttributes.put("exposeConfigurationAsProperties", Boolean.TRUE);
-		annotationAttributes.put("indexableSessionAttributes", ArrayUtils.asArray("one", "two", "three"));
 		annotationAttributes.put("maxInactiveIntervalInSeconds", 600);
 		annotationAttributes.put("poolName", "TestPool");
-		annotationAttributes.put("serverRegionShortcut", RegionShortcut.REPLICATE);
 		annotationAttributes.put("regionName", "TEST");
 		annotationAttributes.put("sessionExpirationPolicyBeanName", "testSessionExpirationPolicy");
 		annotationAttributes.put("sessionSerializerBeanName", "testSessionSerializer");
@@ -435,11 +392,8 @@ public class GemFireHttpSessionConfigurationUnitTests {
 
 		assertThat(this.gemfireConfiguration.getClientRegionShortcut()).isEqualTo(ClientRegionShortcut.CACHING_PROXY);
 		assertThat(this.gemfireConfiguration.isExposeConfigurationAsProperties()).isTrue();
-		assertThat(this.gemfireConfiguration.getIndexableSessionAttributes())
-			.isEqualTo(ArrayUtils.asArray("one", "two", "three"));
 		assertThat(this.gemfireConfiguration.getMaxInactiveIntervalInSeconds()).isEqualTo(600);
 		assertThat(this.gemfireConfiguration.getPoolName()).isEqualTo("TestPool");
-		assertThat(this.gemfireConfiguration.getServerRegionShortcut()).isEqualTo(RegionShortcut.REPLICATE);
 		assertThat(this.gemfireConfiguration.getSessionRegionName()).isEqualTo("TEST");
 		assertThat(this.gemfireConfiguration.getSessionExpirationPolicyBeanName().orElse(null))
 			.isEqualTo("testSessionExpirationPolicy");
@@ -466,11 +420,6 @@ public class GemFireHttpSessionConfigurationUnitTests {
 			}
 
 			@Override
-			public String[] getIndexableSessionAttributes() {
-				return new String[] { "one", "two" };
-			}
-
-			@Override
 			public int getMaxInactiveIntervalInSeconds() {
 				return 300;
 			}
@@ -483,11 +432,6 @@ public class GemFireHttpSessionConfigurationUnitTests {
 			@Override
 			public String getRegionName() {
 				return "Sessions";
-			}
-
-			@Override
-			public RegionShortcut getServerRegionShortcut() {
-				return RegionShortcut.PARTITION_REDUNDANT;
 			}
 
 			@Override
@@ -508,10 +452,8 @@ public class GemFireHttpSessionConfigurationUnitTests {
 
 		assertThat(this.gemfireConfiguration.getClientRegionShortcut()).isEqualTo(ClientRegionShortcut.CACHING_PROXY);
 		assertThat(this.gemfireConfiguration.isExposeConfigurationAsProperties()).isEqualTo(true);
-		assertThat(this.gemfireConfiguration.getIndexableSessionAttributes()).containsExactly("one", "two");
 		assertThat(this.gemfireConfiguration.getMaxInactiveIntervalInSeconds()).isEqualTo(300);
 		assertThat(this.gemfireConfiguration.getPoolName()).isEqualTo("DeadPool");
-		assertThat(this.gemfireConfiguration.getServerRegionShortcut()).isEqualTo(RegionShortcut.PARTITION_REDUNDANT);
 		assertThat(this.gemfireConfiguration.getSessionRegionName()).isEqualTo("Sessions");
 		assertThat(this.gemfireConfiguration.getSessionExpirationPolicyBeanName().orElse(null))
 			.isEqualTo("TestSessionExpirationPolicy");
@@ -525,10 +467,8 @@ public class GemFireHttpSessionConfigurationUnitTests {
 
 		verify(this.gemfireConfiguration, never()).setClientRegionShortcut(any(ClientRegionShortcut.class));
 		verify(this.gemfireConfiguration, never()).setExposeConfigurationAsProperties(anyBoolean());
-		verify(this.gemfireConfiguration, never()).setIndexableSessionAttributes(any(String[].class));
 		verify(this.gemfireConfiguration, never()).setMaxInactiveIntervalInSeconds(anyInt());
 		verify(this.gemfireConfiguration, never()).setPoolName(anyString());
-		verify(this.gemfireConfiguration, never()).setServerRegionShortcut(any(RegionShortcut.class));
 		verify(this.gemfireConfiguration, never()).setSessionExpirationPolicyBeanName(anyString());
 		verify(this.gemfireConfiguration, never()).setSessionRegionName(anyString());
 		verify(this.gemfireConfiguration, never()).setSessionSerializerBeanName(anyString());
@@ -557,10 +497,8 @@ public class GemFireHttpSessionConfigurationUnitTests {
 		finally {
 			verify(this.gemfireConfiguration, never()).setClientRegionShortcut(any(ClientRegionShortcut.class));
 			verify(this.gemfireConfiguration, never()).setExposeConfigurationAsProperties(anyBoolean());
-			verify(this.gemfireConfiguration, never()).setIndexableSessionAttributes(any(String[].class));
 			verify(this.gemfireConfiguration, never()).setMaxInactiveIntervalInSeconds(anyInt());
 			verify(this.gemfireConfiguration, never()).setPoolName(anyString());
-			verify(this.gemfireConfiguration, never()).setServerRegionShortcut(any(RegionShortcut.class));
 			verify(this.gemfireConfiguration, never()).setSessionExpirationPolicyBeanName(anyString());
 			verify(this.gemfireConfiguration, never()).setSessionRegionName(anyString());
 			verify(this.gemfireConfiguration, never()).setSessionSerializerBeanName(anyString());
@@ -576,10 +514,8 @@ public class GemFireHttpSessionConfigurationUnitTests {
 		this.gemfireConfiguration.setClientRegionShortcut(ClientRegionShortcut.CACHING_PROXY);
 		this.gemfireConfiguration.setEnvironment(environment);
 		this.gemfireConfiguration.setExposeConfigurationAsProperties(true);
-		this.gemfireConfiguration.setIndexableSessionAttributes(ArrayUtils.asArray("one", "two"));
 		this.gemfireConfiguration.setMaxInactiveIntervalInSeconds(300);
 		this.gemfireConfiguration.setPoolName("DeadPool");
-		this.gemfireConfiguration.setServerRegionShortcut(RegionShortcut.PARTITION_REDUNDANT);
 		this.gemfireConfiguration.setSessionExpirationPolicyBeanName("TestSessionExpirationPolicy");
 		this.gemfireConfiguration.setSessionRegionName("Sessions");
 		this.gemfireConfiguration.setSessionSerializerBeanName("TestSessionSerializer");
@@ -597,20 +533,11 @@ public class GemFireHttpSessionConfigurationUnitTests {
 		assertThat(springSessionGemFirePropertySource.getProperty("spring.session.data.gemfire.session.configuration.expose"))
 			.isEqualTo(Boolean.TRUE.toString());
 
-		assertThat(springSessionGemFirePropertySource.getProperty("spring.session.data.gemfire.session.attributes.indexable"))
-			.isEqualTo("one,two");
-
-		assertThat(springSessionGemFirePropertySource.getProperty("spring.session.data.gemfire.session.attributes.indexed"))
-			.isEqualTo("one,two");
-
 		assertThat(springSessionGemFirePropertySource.getProperty("spring.session.data.gemfire.session.expiration.max-inactive-interval-seconds"))
 			.isEqualTo("300");
 
 		assertThat(springSessionGemFirePropertySource.getProperty("spring.session.data.gemfire.cache.client.pool.name"))
 			.isEqualTo("DeadPool");
-
-		assertThat(springSessionGemFirePropertySource.getProperty("spring.session.data.gemfire.cache.server.region.shortcut"))
-			.isEqualTo(RegionShortcut.PARTITION_REDUNDANT.name());
 
 		assertThat(springSessionGemFirePropertySource.getProperty("spring.session.data.gemfire.session.expiration.bean-name"))
 			.isEqualTo("TestSessionExpirationPolicy");
@@ -624,11 +551,9 @@ public class GemFireHttpSessionConfigurationUnitTests {
 		verify(this.gemfireConfiguration, times(1)).getClientRegionShortcut();
 		verify(this.gemfireConfiguration, times(1)).getEnvironment();
 		verify(this.gemfireConfiguration, times(2)).isExposeConfigurationAsProperties();
-		verify(this.gemfireConfiguration, times(2)).getIndexableSessionAttributes();
 		verify(this.gemfireConfiguration, times(1)).getMaxInactiveIntervalInSeconds();
 		verify(this.gemfireConfiguration, times(1)).getPoolName();
 		verify(this.gemfireConfiguration, times(1)).getSessionRegionName();
-		verify(this.gemfireConfiguration, times(1)).getServerRegionShortcut();
 		verify(this.gemfireConfiguration, times(1)).getSessionExpirationPolicyBeanName();
 		verify(this.gemfireConfiguration, times(1)).getSessionSerializerBeanName();
 	}
@@ -643,11 +568,9 @@ public class GemFireHttpSessionConfigurationUnitTests {
 		verify(this.gemfireConfiguration, never()).getClientRegionShortcut();
 		verify(this.gemfireConfiguration, times(1)).getEnvironment();
 		verify(this.gemfireConfiguration, times(1)).isExposeConfigurationAsProperties();
-		verify(this.gemfireConfiguration, never()).getIndexableSessionAttributes();
 		verify(this.gemfireConfiguration, never()).getMaxInactiveIntervalInSeconds();
 		verify(this.gemfireConfiguration, never()).getPoolName();
 		verify(this.gemfireConfiguration, never()).getSessionRegionName();
-		verify(this.gemfireConfiguration, never()).getServerRegionShortcut();
 		verify(this.gemfireConfiguration, never()).getSessionExpirationPolicyBeanName();
 		verify(this.gemfireConfiguration, never()).getSessionSerializerBeanName();
 	}
@@ -664,11 +587,9 @@ public class GemFireHttpSessionConfigurationUnitTests {
 		verify(this.gemfireConfiguration, never()).getClientRegionShortcut();
 		verify(this.gemfireConfiguration, never()).getEnvironment();
 		verify(this.gemfireConfiguration, times(1)).isExposeConfigurationAsProperties();
-		verify(this.gemfireConfiguration, never()).getIndexableSessionAttributes();
 		verify(this.gemfireConfiguration, never()).getMaxInactiveIntervalInSeconds();
 		verify(this.gemfireConfiguration, never()).getPoolName();
 		verify(this.gemfireConfiguration, never()).getSessionRegionName();
-		verify(this.gemfireConfiguration, never()).getServerRegionShortcut();
 		verify(this.gemfireConfiguration, never()).getSessionExpirationPolicyBeanName();
 		verify(this.gemfireConfiguration, never()).getSessionSerializerBeanName();
 		verifyNoInteractions(mockEnvironment);
@@ -686,11 +607,9 @@ public class GemFireHttpSessionConfigurationUnitTests {
 		verify(this.gemfireConfiguration, never()).getClientRegionShortcut();
 		verify(this.gemfireConfiguration, times(1)).getEnvironment();
 		verify(this.gemfireConfiguration, times(1)).isExposeConfigurationAsProperties();
-		verify(this.gemfireConfiguration, never()).getIndexableSessionAttributes();
 		verify(this.gemfireConfiguration, never()).getMaxInactiveIntervalInSeconds();
 		verify(this.gemfireConfiguration, never()).getPoolName();
 		verify(this.gemfireConfiguration, never()).getSessionRegionName();
-		verify(this.gemfireConfiguration, never()).getServerRegionShortcut();
 		verify(this.gemfireConfiguration, never()).getSessionExpirationPolicyBeanName();
 		verify(this.gemfireConfiguration, never()).getSessionSerializerBeanName();
 		verifyNoInteractions(mockEnvironment);
@@ -763,7 +682,6 @@ public class GemFireHttpSessionConfigurationUnitTests {
 
 		this.gemfireConfiguration.setClientRegionShortcut(ClientRegionShortcut.CACHING_PROXY);
 		this.gemfireConfiguration.setPoolName("TestPool");
-		this.gemfireConfiguration.setServerRegionShortcut(RegionShortcut.PARTITION_REDUNDANT);
 		this.gemfireConfiguration.setSessionRegionName("TestRegion");
 
 		SessionCacheTypeAwareRegionFactoryBean<Object, Session> sessionRegionFactoryBean =
@@ -775,7 +693,6 @@ public class GemFireHttpSessionConfigurationUnitTests {
 		assertThat(GemFireHttpSessionConfigurationUnitTests.<String>getField(sessionRegionFactoryBean, "poolName")).isEqualTo("TestPool");
 		assertThat(GemFireHttpSessionConfigurationUnitTests.<RegionAttributes<Object, Session>>getField(sessionRegionFactoryBean, "regionAttributes")).isEqualTo(mockRegionAttributes);
 		assertThat(GemFireHttpSessionConfigurationUnitTests.<String>getField(sessionRegionFactoryBean, "regionName")).isEqualTo("TestRegion");
-		assertThat(sessionRegionFactoryBean.getServerRegionShortcut()).isEqualTo(RegionShortcut.PARTITION_REDUNDANT);
 
 		verifyNoInteractions(mockGemFireCache);
 		verifyNoInteractions(mockRegionAttributes);
@@ -817,12 +734,10 @@ public class GemFireHttpSessionConfigurationUnitTests {
 		ClientCache mockClientCache = mock(ClientCache.class);
 
 		this.gemfireConfiguration.setClientRegionShortcut(ClientRegionShortcut.CACHING_PROXY);
-		this.gemfireConfiguration.setServerRegionShortcut(RegionShortcut.PARTITION_PROXY);
 
 		assertThat(this.gemfireConfiguration.isExpirationAllowed(mockClientCache)).isTrue();
 
 		this.gemfireConfiguration.setClientRegionShortcut(ClientRegionShortcut.LOCAL_PERSISTENT_OVERFLOW);
-		this.gemfireConfiguration.setServerRegionShortcut(RegionShortcut.REPLICATE);
 
 		assertThat(this.gemfireConfiguration.isExpirationAllowed(mockClientCache)).isTrue();
 	}
@@ -833,12 +748,10 @@ public class GemFireHttpSessionConfigurationUnitTests {
 		ClientCache mockClientCache = mock(ClientCache.class);
 
 		this.gemfireConfiguration.setClientRegionShortcut(ClientRegionShortcut.PROXY);
-		this.gemfireConfiguration.setServerRegionShortcut(RegionShortcut.PARTITION_PROXY);
 
 		assertThat(this.gemfireConfiguration.isExpirationAllowed(mockClientCache)).isFalse();
 
 		this.gemfireConfiguration.setClientRegionShortcut(ClientRegionShortcut.PROXY);
-		this.gemfireConfiguration.setServerRegionShortcut(RegionShortcut.REPLICATE);
 
 		assertThat(this.gemfireConfiguration.isExpirationAllowed(mockClientCache)).isFalse();
 	}

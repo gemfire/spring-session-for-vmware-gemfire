@@ -5,6 +5,7 @@
 
 package org.springframework.session.data.gemfire.config.annotation.web.http;
 
+import jakarta.servlet.http.HttpSession;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -12,16 +13,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Properties;
-
-import jakarta.servlet.http.HttpSession;
-
 import org.apache.geode.cache.Cache;
 import org.apache.geode.cache.Region;
-import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.geode.cache.client.Pool;
-
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.env.Environment;
@@ -141,21 +137,6 @@ public @interface EnableGemFireHttpSession {
 	boolean exposeConfigurationAsProperties() default GemFireHttpSessionConfiguration.DEFAULT_EXPOSE_CONFIGURATION_AS_PROPERTIES;
 
 	/**
-	 * Identifies the {@link Session} attributes by name that will be indexed for query operations.
-	 *
-	 * For instance, find all {@link Session Sessions} in Apache Geode or Pivotal GemFire having attribute A
-	 * defined with value X.
-	 *
-	 * Defaults to empty {@link String} array.
-	 *
-	 * Use the {@literal spring.session.data.gemfire.session.attributes.indexed}
-	 * in Spring Boot {@literal application.properties}.
-	 *
-	 * @return an array of {@link String Strings} identifying the names of {@link Session} attributes to index.
-	 */
-	String[] indexableSessionAttributes() default {};
-
-	/**
 	 * Defines the maximum interval in seconds that a {@link Session} can remain inactive before it expires.
 	 *
 	 * Defaults to {@literal 1800} seconds, or {@literal 30} minutes.
@@ -197,20 +178,6 @@ public @interface EnableGemFireHttpSession {
 	 * @see GemFireHttpSessionConfiguration#DEFAULT_SESSION_REGION_NAME
 	 */
 	String regionName() default GemFireHttpSessionConfiguration.DEFAULT_SESSION_REGION_NAME;
-
-	/**
-	 * Defines the {@link Cache} {@link Region} data management policy.
-	 *
-	 * Defaults to {@link RegionShortcut#PARTITION}.
-	 *
-	 * Use the {@literal spring.session.data.gemfire.cache.server.region.shortcut} in Spring Boot
-	 * {@literal application.properties}.
-	 *
-	 * @return a {@link RegionShortcut} used to specify and configure the {@link Cache} {@link Region}
-	 * data management policy.
-	 * @see RegionShortcut
-	 */
-	RegionShortcut serverRegionShortcut() default RegionShortcut.PARTITION;
 
 	/**
 	 * Defines the name of the bean referring to the {@link SessionExpirationPolicy} used to configure

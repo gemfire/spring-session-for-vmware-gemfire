@@ -6,17 +6,13 @@ package org.springframework.session.data.gemfire.config.annotation.web.http;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-
+import org.apache.geode.cache.client.ClientRegionShortcut;
+import org.apache.geode.cache.client.Pool;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import org.apache.geode.cache.RegionShortcut;
-import org.apache.geode.cache.client.ClientRegionShortcut;
-import org.apache.geode.cache.client.Pool;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
@@ -64,10 +60,8 @@ public class GemFireHttpSessionConfigurationWithSpringSessionPropertiesUnitTests
 	public void springSessionConfigurationIsCorrect() {
 
 		assertThat(this.sessionConfiguration.getClientRegionShortcut()).isEqualTo(ClientRegionShortcut.CACHING_PROXY);
-		assertThat(this.sessionConfiguration.getIndexableSessionAttributes()).containsExactly("username", "userId");
 		assertThat(this.sessionConfiguration.getMaxInactiveIntervalInSeconds()).isEqualTo(300);
 		assertThat(this.sessionConfiguration.getPoolName()).isEqualTo("CarPool");
-		assertThat(this.sessionConfiguration.getServerRegionShortcut()).isEqualTo(RegionShortcut.REPLICATE);
 		assertThat(this.sessionConfiguration.getSessionExpirationPolicyBeanName().orElse(null)).isEqualTo("TestSessionExpirationPolicyBean");
 		assertThat(this.sessionConfiguration.getSessionRegionName()).isEqualTo("TestSessions");
 		assertThat(this.sessionConfiguration.getSessionSerializerBeanName()).isEqualTo(GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME);

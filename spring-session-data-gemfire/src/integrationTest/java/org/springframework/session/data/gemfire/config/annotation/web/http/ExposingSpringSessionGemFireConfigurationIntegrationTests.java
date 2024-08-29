@@ -6,16 +6,11 @@ package org.springframework.session.data.gemfire.config.annotation.web.http;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-
 import java.util.Optional;
-
-import org.junit.After;
-import org.junit.Test;
-
-import org.apache.geode.cache.RegionShortcut;
 import org.apache.geode.cache.client.ClientRegionShortcut;
 import org.apache.geode.cache.client.Pool;
-
+import org.junit.After;
+import org.junit.Test;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -89,9 +84,6 @@ public class ExposingSpringSessionGemFireConfigurationIntegrationTests extends A
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.configuration.expose"))
 			.isEqualTo(Boolean.TRUE.toString());
 
-		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.attributes.indexed"))
-			.isEqualTo("one,two");
-
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.expiration.max-inactive-interval-seconds"))
 			.isEqualTo("600");
 
@@ -100,9 +92,6 @@ public class ExposingSpringSessionGemFireConfigurationIntegrationTests extends A
 
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.region.name"))
 			.isEqualTo("Sessions");
-
-		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.cache.server.region.shortcut"))
-			.isEqualTo(RegionShortcut.REPLICATE.name());
 
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.expiration.bean-name"))
 			.isEqualTo("AttributeSessionExpirationPolicy");
@@ -121,7 +110,6 @@ public class ExposingSpringSessionGemFireConfigurationIntegrationTests extends A
 			.withProperty("spring.session.data.gemfire.session.expiration.max-inactive-interval-seconds", "900")
 			.withProperty("spring.session.data.gemfire.cache.client.pool.name", "Dead")
 			.withProperty("spring.session.data.gemfire.session.region.name", "PropertySessions")
-			.withProperty("spring.session.data.gemfire.cache.server.region.shortcut", RegionShortcut.REPLICATE_PERSISTENT.name())
 			.withProperty("spring.session.data.gemfire.session.expiration.bean-name", "PropertySessionExpirationPolicy")
 			.withProperty("spring.session.data.gemfire.session.serializer.bean-name", "PropertySessionSerializer");
 
@@ -136,9 +124,6 @@ public class ExposingSpringSessionGemFireConfigurationIntegrationTests extends A
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.configuration.expose"))
 			.isEqualTo(Boolean.TRUE.toString());
 
-		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.attributes.indexed"))
-			.isEqualTo("one,two,three");
-
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.expiration.max-inactive-interval-seconds"))
 			.isEqualTo("900");
 
@@ -147,9 +132,6 @@ public class ExposingSpringSessionGemFireConfigurationIntegrationTests extends A
 
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.region.name"))
 			.isEqualTo("PropertySessions");
-
-		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.cache.server.region.shortcut"))
-			.isEqualTo(RegionShortcut.REPLICATE_PERSISTENT.name());
 
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.expiration.bean-name"))
 			.isEqualTo("PropertySessionExpirationPolicy");
@@ -164,11 +146,9 @@ public class ExposingSpringSessionGemFireConfigurationIntegrationTests extends A
 		MockPropertySource testPropertySource = new MockPropertySource("TestProperties")
 			.withProperty("spring.session.data.gemfire.cache.client.region.shortcut", ClientRegionShortcut.LOCAL_PERSISTENT.name())
 			.withProperty("spring.session.data.gemfire.session.configuration.expose", "false")
-			.withProperty("spring.session.data.gemfire.session.attributes.indexed", "one, two, three")
 			.withProperty("spring.session.data.gemfire.session.expiration.max-inactive-interval-seconds", "900")
 			.withProperty("spring.session.data.gemfire.cache.client.pool.name", "Dead")
 			.withProperty("spring.session.data.gemfire.session.region.name", "PropertySessions")
-			.withProperty("spring.session.data.gemfire.cache.server.region.shortcut", RegionShortcut.REPLICATE_PERSISTENT.name())
 			.withProperty("spring.session.data.gemfire.session.expiration.bean-name", "PropertySessionExpirationPolicy")
 			.withProperty("spring.session.data.gemfire.session.serializer.bean-name", "PropertySessionSerializer");
 
@@ -184,9 +164,6 @@ public class ExposingSpringSessionGemFireConfigurationIntegrationTests extends A
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.configuration.expose"))
 			.isEqualTo(Boolean.TRUE.toString());
 
-		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.attributes.indexed"))
-			.isEqualTo("two,four");
-
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.expiration.max-inactive-interval-seconds"))
 			.isEqualTo("300");
 
@@ -195,9 +172,6 @@ public class ExposingSpringSessionGemFireConfigurationIntegrationTests extends A
 
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.region.name"))
 			.isEqualTo("ConfigurerSessions");
-
-		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.cache.server.region.shortcut"))
-			.isEqualTo(RegionShortcut.PARTITION_REDUNDANT.name());
 
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.expiration.bean-name"))
 			.isEqualTo("ConfigurerSessionExpirationPolicy");
@@ -227,9 +201,6 @@ public class ExposingSpringSessionGemFireConfigurationIntegrationTests extends A
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.configuration.expose"))
 			.isEqualTo(Boolean.TRUE.toString());
 
-		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.attributes.indexed"))
-			.isEqualTo("one,two");
-
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.expiration.max-inactive-interval-seconds"))
 			.isEqualTo("300");
 
@@ -238,9 +209,6 @@ public class ExposingSpringSessionGemFireConfigurationIntegrationTests extends A
 
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.region.name"))
 			.isEqualTo("PropertySessions");
-
-		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.cache.server.region.shortcut"))
-			.isEqualTo(RegionShortcut.PARTITION_REDUNDANT.name());
 
 		assertThat(environment.getRequiredProperty("spring.session.data.gemfire.session.expiration.bean-name"))
 			.isEqualTo("AttributeSessionExpirationPolicy");
@@ -253,11 +221,9 @@ public class ExposingSpringSessionGemFireConfigurationIntegrationTests extends A
 	@EnableGemFireHttpSession(
 		clientRegionShortcut = ClientRegionShortcut.LOCAL,
 		exposeConfigurationAsProperties = true,
-		indexableSessionAttributes = { "one", "two" },
 		maxInactiveIntervalInSeconds = 600,
 		poolName = "Car",
 		regionName = "Sessions",
-		serverRegionShortcut = RegionShortcut.REPLICATE,
 		sessionExpirationPolicyBeanName = "AttributeSessionExpirationPolicy",
 		sessionSerializerBeanName = "AttributeSessionSerializer"
 	)
@@ -338,11 +304,6 @@ public class ExposingSpringSessionGemFireConfigurationIntegrationTests extends A
 				}
 
 				@Override
-				public String[] getIndexableSessionAttributes() {
-					return new String[] { "two", "four" };
-				}
-
-				@Override
 				public int getMaxInactiveIntervalInSeconds() {
 					return 300;
 				}
@@ -355,11 +316,6 @@ public class ExposingSpringSessionGemFireConfigurationIntegrationTests extends A
 				@Override
 				public String getRegionName() {
 					return "ConfigurerSessions";
-				}
-
-				@Override
-				public RegionShortcut getServerRegionShortcut() {
-					return RegionShortcut.PARTITION_REDUNDANT;
 				}
 
 				@Override
@@ -393,11 +349,6 @@ public class ExposingSpringSessionGemFireConfigurationIntegrationTests extends A
 				@Override
 				public ClientRegionShortcut getClientRegionShortcut() {
 					return ClientRegionShortcut.CACHING_PROXY;
-				}
-
-				@Override
-				public RegionShortcut getServerRegionShortcut() {
-					return RegionShortcut.PARTITION_REDUNDANT;
 				}
 
 				@Bean("ConfigurerSessionSerializer")
