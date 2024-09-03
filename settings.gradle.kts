@@ -40,5 +40,6 @@ private fun versionOverrideFromProperties(versionCatalogBuilder: VersionCatalogB
 
 rootProject.name = "spring-session-data-gemfire"
 include(":spring-session-data-gemfire")
+project(":spring-session-data-gemfire").name = "spring-session-data-gemfire"
 
 
