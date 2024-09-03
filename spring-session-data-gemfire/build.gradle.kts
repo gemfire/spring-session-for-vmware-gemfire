@@ -20,6 +20,7 @@ plugins {
   alias(libs.plugins.lombok)
   alias(libs.plugins.nebula.facet)
   id("gemfire-repo-artifact-publishing")
+  id("commercial-repositories")
 }
 
 description = "Spring Session For VMware GemFire"
