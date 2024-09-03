@@ -9,10 +9,11 @@ import java.util.*
 pluginManagement {
     includeBuild("build-tools/gemfire-server-integration-test-plugin")
     includeBuild("build-tools/publishing")
+    includeBuild("build-tools/convention-plugins")
 }
 
 plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version "0.7.0"
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
 }
 
 dependencyResolutionManagement {
