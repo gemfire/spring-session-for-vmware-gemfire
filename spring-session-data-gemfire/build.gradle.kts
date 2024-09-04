@@ -20,6 +20,8 @@ plugins {
     alias(libs.plugins.lombok)
     alias(libs.plugins.nebula.facet)
     id("gemfire-repo-artifact-publishing")
+    id("commercial-repositories")
+    id("gemfire-artifactory")
 }
 
 description = "Spring Session For VMware GemFire"
@@ -107,13 +109,6 @@ sourceSets {
 
 repositories {
     mavenCentral()
-    maven {
-        credentials {
-            username = property("gemfireRepoUsername") as String
-            password = property("gemfireRepoPassword") as String
-        }
-        url = uri("https://commercial-repo.pivotal.io/data3/gemfire-release-repo/gemfire")
-    }
     val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
     if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
         additionalMavenRepoURLs.split(",").forEach {
