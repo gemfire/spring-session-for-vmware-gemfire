@@ -101,13 +101,6 @@ sourceSets {
 
 repositories {
     mavenCentral()
-    maven {
-        credentials {
-            username = property("gemfireRepoUsername") as String
-            password = property("gemfireRepoPassword") as String
-        }
-        url = uri("https://commercial-repo.pivotal.io/data3/gemfire-release-repo/gemfire")
-    }
     val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
     if (additionalMavenRepoURLs.isNotBlank() && additionalMavenRepoURLs.isNotEmpty()) {
         additionalMavenRepoURLs.split(",").forEach {
