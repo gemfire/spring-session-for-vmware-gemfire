@@ -8,11 +8,6 @@ import com.google.cloud.storage.BlobInfo
 import com.google.cloud.storage.StorageOptions
 import nebula.plugin.responsible.TestFacetDefinition
 
-/*
- * Copyright (c) VMware, Inc. 2023-2024. All rights reserved.
- * SPDX-License-Identifier: Apache-2.0
- */
-
 buildscript {
   dependencies {
     classpath("com.google.cloud:google-cloud-storage:2.30.2")
@@ -25,6 +20,8 @@ plugins {
   alias(libs.plugins.lombok)
   alias(libs.plugins.nebula.facet)
   id("gemfire-repo-artifact-publishing")
+  id("commercial-repositories")
+  id("gemfire-artifactory")
 }
 
 description = "Spring Session For VMware GemFire"
@@ -114,13 +111,6 @@ sourceSets {
 
 repositories {
   mavenCentral()
-  maven {
-    credentials {
-      username = property("gemfireRepoUsername") as String
-      password = property("gemfireRepoPassword") as String
-    }
-    url = uri("https://commercial-repo.pivotal.io/data3/gemfire-release-repo/gemfire")
-  }
   val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
   if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
     additionalMavenRepoURLs.split(",").forEach {
@@ -135,8 +125,12 @@ tasks {
   register("copyJavadocsToBucket") {
     dependsOn(named("javadocJar"))
     doLast {
-      val storage = StorageOptions.newBuilder().setProjectId(project.properties["docsGCSProject"].toString()).build().getService()
-      val blobId = BlobId.of(project.properties["docsGCSBucket"].toString(), "${publishingDetails.artifactName.get()}/${project.version}/${named("javadocJar").get().outputs.files.singleFile.name}")
+      val storage =
+        StorageOptions.newBuilder().setProjectId(project.properties["docsGCSProject"].toString()).build().getService()
+      val blobId = BlobId.of(
+        project.properties["docsGCSBucket"].toString(),
+        "${publishingDetails.artifactName.get()}/${project.version}/${named("javadocJar").get().outputs.files.singleFile.name}"
+      )
       val blobInfo = BlobInfo.newBuilder(blobId).build()
       storage.createFrom(blobInfo, named("javadocJar").get().outputs.files.singleFile.toPath())
     }
@@ -162,22 +156,22 @@ private fun getBaseVersion(version: String): String {
   return "${split[0]}.${split[1]}"
 }
 
-tasks.named<Test>("integrationTest"){
-    forkEvery = 1
-    maxParallelForks = 1
+tasks.named<Test>("integrationTest") {
+  forkEvery = 1
+  maxParallelForks = 1
 
-    filter {
-        includeTestsMatching("*.*Tests")
-        includeTestsMatching("*.*Test")
-    }
+  filter {
+    includeTestsMatching("*.*Tests")
+    includeTestsMatching("*.*Test")
+  }
 }
 
 tasks.named<Test>("test") {
-    forkEvery = 1
-    maxParallelForks = 1
+  forkEvery = 1
+  maxParallelForks = 1
 
-    filter {
-        includeTestsMatching("*.*Tests")
-        includeTestsMatching("*.*Test")
-    }
+  filter {
+    includeTestsMatching("*.*Tests")
+    includeTestsMatching("*.*Test")
+  }
 }
