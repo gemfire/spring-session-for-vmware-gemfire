@@ -16,10 +16,12 @@ buildscript {
 
 plugins {
     id("java-library")
-    //    id("commerical-repositories")
+    id("maven-publish")
     alias(libs.plugins.lombok)
     alias(libs.plugins.nebula.facet)
     id("gemfire-repo-artifact-publishing")
+    id("commercial-repositories")
+    id("gemfire-artifactory")
 }
 
 description = "Spring Session For VMware GemFire"
@@ -107,7 +109,6 @@ sourceSets {
 }
 
 repositories {
-    mavenLocal()
     mavenCentral()
     val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
     if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
