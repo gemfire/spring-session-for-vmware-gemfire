@@ -29,6 +29,12 @@ allprojects {
   }
 }
 
+java {
+  withJavadocJar()
+  withSourcesJar()
+  toolchain { languageVersion = JavaLanguageVersion.of(17) }
+}
+
 versionCatalogUpdate {
   // These options will be set as default for all version catalogs
   sortByKey = true
