@@ -38,8 +38,8 @@ private fun versionOverrideFromProperties(versionCatalogBuilder: VersionCatalogB
     versionOverrideFromProperty(versionCatalogBuilder, "springTestGemFireVersion", properties)
 }
 
-rootProject.name = "spring-session-data-gemfire"
-include(":spring-session-data-gemfire")
+rootProject.name = "spring-session-gemfire"
+include("spring-session-data-gemfire")
 project(":spring-session-data-gemfire").name = "spring-session-data-gemfire"
 
 
