@@ -161,8 +161,7 @@ tasks.named<Test>("integrationTest") {
   maxParallelForks = 1
 
   filter {
-    includeTestsMatching("*.*Tests")
-    includeTestsMatching("*.*Test")
+    setIncludePatterns("*IntegrationTests", "*IntegrationTest")
   }
 }
 
@@ -171,7 +170,7 @@ tasks.named<Test>("test") {
   maxParallelForks = 1
 
   filter {
-    includeTestsMatching("*.*Tests")
-    includeTestsMatching("*.*Test")
+    setIncludePatterns("*Tests", "*Test")
+    setExcludePatterns("*IntegrationTests", "*IntegrationTest")
   }
 }
