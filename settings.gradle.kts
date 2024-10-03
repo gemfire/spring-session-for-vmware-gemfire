@@ -35,6 +35,7 @@ private fun versionOverrideFromProperty(versionCatalogBuilder: VersionCatalogBui
 private fun versionOverrideFromProperties(versionCatalogBuilder: VersionCatalogBuilder, properties: Properties) {
     versionOverrideFromProperty(versionCatalogBuilder, "gemfireVersion", properties)
     versionOverrideFromProperty(versionCatalogBuilder, "springDataGemFireVersion", properties)
+    versionOverrideFromProperty(versionCatalogBuilder, "springTestGemFireVersion", properties)
 }
 
 rootProject.name = "spring-session-data-gemfire"
