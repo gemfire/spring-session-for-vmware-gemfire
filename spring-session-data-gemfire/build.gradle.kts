@@ -8,11 +8,6 @@ import com.google.cloud.storage.BlobInfo
 import com.google.cloud.storage.StorageOptions
 import nebula.plugin.responsible.TestFacetDefinition
 
-/*
- * Copyright (c) VMware, Inc. 2023-2024. All rights reserved.
- * SPDX-License-Identifier: Apache-2.0
- */
-
 buildscript {
   dependencies {
     classpath("com.google.cloud:google-cloud-storage:2.30.2")
@@ -85,6 +80,7 @@ dependencies {
 
   testImplementation(libs.bundles.gemfire.dependencies)
 
+  testImplementation(libs.awaitility)
   testCompileOnly(libs.jakarta.servlet.api)
   testImplementation(libs.multithreadedtc)
   testImplementation(libs.spring.test.gemfire)

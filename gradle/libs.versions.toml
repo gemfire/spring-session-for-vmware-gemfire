@@ -3,6 +3,7 @@ antlrVersion = "2.7.7"
 apacheLogging = "2.14.1"
 apacheTaglibsVersion = "1.2.5"
 assertjVersion = "3.23.1"
+awaitilityVersion = "4.2.2"
 findbugsVersion = "3.0.2"
 logbackVersion = "1.2.13"
 log4jVersion = "2.19.0"
@@ -40,6 +41,8 @@ spring-security-bom = { module = "org.springframework.security:spring-security-b
 
 antlr = { module = "antlr:antlr", version.ref = "antlrVersion" }
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertjVersion" }
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitilityVersion" }
+
 findbugs-jsr305 = { module = "com.google.code.findbugs:jsr305", version.ref = "jsr305Version" }
 javax-annotation-api = { module = "javax.annotation:javax.annotation-api", version.ref = "javaxAnnotationApiVersion" }
 jakarta-servlet-api = { module = "jakarta.servlet:jakarta.servlet-api", version.ref = "jakartaServletApiVersion" }
@@ -86,7 +89,7 @@ gemfire-tcp-messenger = { module = "com.vmware.gemfire:gemfire-tcp-messenger", v
 gemfire-deployment-chained-classloader = { module = "com.vmware.gemfire:gemfire-deployment-chained-classloader", version.ref = "gemfireVersion" }
 
 [bundles]
-gemfire-dependencies = ["gemfire-core", "gemfire-cq", "gemfire-logging", "gemfire-deployment-chained-classloader", "gemfire-gfsh", "gemfire-tcp-server", "gemfire-wan", "gemfire-tcp-messenger","gemfire-version"]
+gemfire-dependencies = ["gemfire-core", "gemfire-cq", "gemfire-logging", "gemfire-deployment-chained-classloader", "gemfire-gfsh", "gemfire-tcp-server", "gemfire-wan", "gemfire-tcp-messenger", "gemfire-version"]
 
 [plugins]
 lombok = { id = "io.freefair.lombok", version.ref = "lombokVersion" }

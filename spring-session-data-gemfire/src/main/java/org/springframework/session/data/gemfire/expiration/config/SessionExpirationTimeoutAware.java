@@ -26,7 +26,7 @@ import org.springframework.session.data.gemfire.config.annotation.web.http.Enabl
 public interface SessionExpirationTimeoutAware {
 
 	/**
-	 * Configures the {@link Session} {@link Duration expiration timeout} on this implementating object.
+	 * Configures the {@link Session} {@link Duration expiration timeout} on this implementing object.
 	 *
 	 * @param expirationTimeout {@link Duration} specifying the expiration timeout fo the {@link Session}.
 	 * @see Duration
