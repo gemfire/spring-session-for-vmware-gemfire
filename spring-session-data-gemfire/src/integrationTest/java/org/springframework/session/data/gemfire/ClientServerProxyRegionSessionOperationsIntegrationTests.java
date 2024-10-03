@@ -110,6 +110,8 @@ public class ClientServerProxyRegionSessionOperationsIntegrationTests extends Ab
 		assertThat(sessionEvent).isInstanceOf(SessionExpiredEvent.class);
 		assertThat(sessionEvent.getSessionId()).isEqualTo(session.getId());
 
+		sessionRepository.deleteById(session.getId());
+
 		// RECREATE
 		save(touch(session));
 

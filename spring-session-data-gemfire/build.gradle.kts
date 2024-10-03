@@ -71,15 +71,17 @@ dependencies {
     implementation(libs.jakarta.servlet.api)
     testImplementation(libs.bundles.gemfire.dependencies)
 
-    testImplementation(libs.multithreadedtc)
-    testImplementation(libs.spring.test.gemfire)
-    testImplementation(libs.assertj.core)
-    testImplementation(libs.junit)
-    testImplementation(libs.mockito.core)
-    testImplementation(libs.logback.classic)
-    testImplementation(libs.log4j.over.slf4j)
-    testImplementation("org.springframework:spring-test")
-    testImplementation("org.springframework:spring-web")
+  testImplementation(libs.awaitility)
+  testCompileOnly(libs.jakarta.servlet.api)
+  testImplementation(libs.multithreadedtc)
+  testImplementation(libs.spring.test.gemfire)
+  testImplementation(libs.assertj.core)
+  testImplementation(libs.junit)
+  testImplementation(libs.mockito.core)
+  testImplementation(libs.logback.classic)
+  testImplementation(libs.log4j.over.slf4j)
+  testImplementation("org.springframework:spring-test")
+  testImplementation("org.springframework:spring-web")
 
     "integrationTestImplementation"(libs.bundles.gemfire.dependencies)
     "integrationTestImplementation"(libs.junit)
@@ -112,18 +114,22 @@ repositories {
 }
 
 tasks {
-    register("copyJavadocsToBucket") {
-        dependsOn(named("javadocJar"))
-        doLast {
-            val storage = StorageOptions.newBuilder().setProjectId(project.properties["docsGCSProject"].toString()).build().getService()
-            val blobId = BlobId.of(project.properties["docsGCSBucket"].toString(), "${publishingDetails.artifactName.get()}/${project.version}/${named("javadocJar").get().outputs.files.singleFile.name}")
-            val blobInfo = BlobInfo.newBuilder(blobId).build()
-            storage.createFrom(blobInfo, named("javadocJar").get().outputs.files.singleFile.toPath())
-        }
+  register("copyJavadocsToBucket") {
+    dependsOn(named("javadocJar"))
+    doLast {
+      val storage =
+        StorageOptions.newBuilder().setProjectId(project.properties["docsGCSProject"].toString()).build().getService()
+      val blobId = BlobId.of(
+        project.properties["docsGCSBucket"].toString(),
+        "${publishingDetails.artifactName.get()}/${project.version}/${named("javadocJar").get().outputs.files.singleFile.name}"
+      )
+      val blobInfo = BlobInfo.newBuilder(blobId).build()
+      storage.createFrom(blobInfo, named("javadocJar").get().outputs.files.singleFile.toPath())
     }
-    named<ProcessResources>("processIntegrationTestResources") {
-        duplicatesStrategy = DuplicatesStrategy.INCLUDE
-    }
+  }
+  named<ProcessResources>("processIntegrationTestResources") {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+  }
 }
 
 private fun getSpringSessionBaseVersion(): String {
@@ -142,22 +148,21 @@ private fun getBaseVersion(version: String): String {
     return "${split[0]}.${split[1]}"
 }
 
-tasks.named<Test>("integrationTest"){
-    forkEvery = 1
-    maxParallelForks = 1
+tasks.named<Test>("integrationTest") {
+  forkEvery = 1
+  maxParallelForks = 1
 
-    filter {
-        includeTestsMatching("*.*Tests")
-        includeTestsMatching("*.*Test")
-    }
+  filter {
+    setIncludePatterns("*IntegrationTests", "*IntegrationTest")
+  }
 }
 
 tasks.named<Test>("test") {
-    forkEvery = 1
-    maxParallelForks = 1
+  forkEvery = 1
+  maxParallelForks = 1
 
-    filter {
-        includeTestsMatching("*.*Tests")
-        includeTestsMatching("*.*Test")
-    }
+  filter {
+    setIncludePatterns("*Tests", "*Test")
+    setExcludePatterns("*IntegrationTests", "*IntegrationTest")
+  }
 }
