@@ -4,16 +4,72 @@
  */
 package org.springframework.session.data.gemfire;
 
+import edu.umd.cs.mtc.MultithreadedTestCase;
+import edu.umd.cs.mtc.TestFramework;
+import org.apache.geode.Delta;
+import org.apache.geode.cache.AttributesMutator;
+import org.apache.geode.cache.EntryEvent;
+import org.apache.geode.cache.InterestResultPolicy;
+import org.apache.geode.cache.Operation;
+import org.apache.geode.cache.Region;
+import org.apache.geode.cache.RegionAttributes;
+import org.apache.geode.cache.client.ClientCache;
+import org.apache.geode.cache.client.Pool;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnitRunner;
+import org.slf4j.Logger;
+import org.springframework.context.ApplicationEvent;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.gemfire.GemfireOperations;
+import org.springframework.data.gemfire.GemfireTemplate;
+import org.springframework.data.gemfire.util.RegionUtils;
+import org.springframework.lang.Nullable;
+import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
+import org.springframework.session.data.gemfire.config.annotation.web.http.GemFireHttpSessionConfiguration;
+import org.springframework.session.data.gemfire.events.SessionChangedEvent;
+import org.springframework.session.data.gemfire.model.BoundedRingHashSet;
+import org.springframework.session.data.gemfire.support.DeltaAwareDirtyPredicate;
+import org.springframework.session.data.gemfire.support.EqualsDirtyPredicate;
+import org.springframework.session.data.gemfire.support.GemFireOperationsSessionRepositorySupport;
+import org.springframework.session.data.gemfire.support.IdentityEqualsDirtyPredicate;
+import org.springframework.session.data.gemfire.support.IsDirtyPredicate;
+import org.springframework.session.data.gemfire.support.SessionUtils;
+import org.springframework.session.events.AbstractSessionEvent;
+import org.springframework.session.events.SessionCreatedEvent;
+import org.springframework.session.events.SessionDeletedEvent;
+import org.springframework.session.events.SessionDestroyedEvent;
+import org.springframework.session.events.SessionExpiredEvent;
+
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isA;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -31,68 +87,7 @@ import static org.springframework.session.data.gemfire.AbstractGemFireOperations
 import static org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.DeltaCapableGemFireSessionAttributes;
 import static org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.GemFireSession;
 import static org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.GemFireSessionAttributes;
-import static org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.SessionEventHandlerCacheListenerAdapter;
 import static org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.SessionIdInterestRegisteringCacheListener;
-
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
-
-import edu.umd.cs.mtc.MultithreadedTestCase;
-import edu.umd.cs.mtc.TestFramework;
-
-import org.apache.geode.Delta;
-import org.apache.geode.cache.AttributesMutator;
-import org.apache.geode.cache.EntryEvent;
-import org.apache.geode.cache.InterestResultPolicy;
-import org.apache.geode.cache.Operation;
-import org.apache.geode.cache.Region;
-import org.apache.geode.cache.RegionAttributes;
-import org.apache.geode.cache.client.ClientCache;
-import org.apache.geode.cache.client.Pool;
-
-import org.springframework.context.ApplicationEvent;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.gemfire.GemfireOperations;
-import org.springframework.data.gemfire.GemfireTemplate;
-import org.springframework.data.gemfire.util.RegionUtils;
-import org.springframework.lang.Nullable;
-import org.springframework.session.FindByIndexNameSessionRepository;
-import org.springframework.session.Session;
-import org.springframework.session.data.gemfire.config.annotation.web.http.GemFireHttpSessionConfiguration;
-import org.springframework.session.data.gemfire.events.SessionChangedEvent;
-import org.springframework.session.data.gemfire.support.DeltaAwareDirtyPredicate;
-import org.springframework.session.data.gemfire.support.EqualsDirtyPredicate;
-import org.springframework.session.data.gemfire.support.GemFireOperationsSessionRepositorySupport;
-import org.springframework.session.data.gemfire.support.IdentityEqualsDirtyPredicate;
-import org.springframework.session.data.gemfire.support.IsDirtyPredicate;
-import org.springframework.session.data.gemfire.support.SessionIdHolder;
-import org.springframework.session.events.AbstractSessionEvent;
-import org.springframework.session.events.SessionCreatedEvent;
-import org.springframework.session.events.SessionDeletedEvent;
-import org.springframework.session.events.SessionDestroyedEvent;
-import org.springframework.session.events.SessionExpiredEvent;
-import org.springframework.util.ObjectUtils;
-
-import org.slf4j.Logger;
 
 /**
  * Unit Tests for {@link AbstractGemFireOperationsSessionRepository}.
@@ -131,3745 +126,3112 @@ import org.slf4j.Logger;
 @SuppressWarnings("rawtypes")
 public class AbstractGemFireOperationsSessionRepositoryTests {
 
-	protected static final int MAX_INACTIVE_INTERVAL_IN_SECONDS = 300;
+  protected static final int MAX_INACTIVE_INTERVAL_IN_SECONDS = 300;
 
-	// Subject Under Test (SUT)
-	private AbstractGemFireOperationsSessionRepository sessionRepository;
+  // Subject Under Test (SUT)
+  private AbstractGemFireOperationsSessionRepository sessionRepository;
 
-	@Mock
-	private Logger mockLog;
+  @Mock
+  private Logger mockLog;
 
-	@Mock
-	private Pool mockPool;
+  @Mock
+  private Pool mockPool;
 
-	@Mock
-	private Region<Object, Session> mockRegion;
+  @Mock
+  private Region<Object, Session> mockRegion;
 
-	@Mock
-	private Session mockSession;
+  @Mock
+  private Session mockSession;
 
-	@Before
-	public void setup() {
+  @Before
+  public void setup() {
 
-		this.sessionRepository = new TestGemFireOperationsSessionRepository(new GemfireTemplate(this.mockRegion));
-		this.sessionRepository.setUseDataSerialization(false);
-		this.sessionRepository = spy(this.sessionRepository);
+    this.sessionRepository = new TestGemFireOperationsSessionRepository(new GemfireTemplate(this.mockRegion));
+    this.sessionRepository.setUseDataSerialization(false);
+    this.sessionRepository = spy(this.sessionRepository);
 
-		doReturn(this.mockLog).when(this.sessionRepository).getLogger();
-		doReturn(this.mockRegion).when(this.sessionRepository).getSessionsRegion();
-	}
+    doReturn(this.mockLog).when(this.sessionRepository).getLogger();
+    doReturn(this.mockRegion).when(this.sessionRepository).getSessionsRegion();
+  }
 
-	@SuppressWarnings("unchecked")
-	private <K, V> EntryEvent<K, V> mockEntryEvent(Operation operation, K key, V oldValue, V newValue) {
+  @SuppressWarnings("unchecked")
+  private <K, V> EntryEvent<K, V> mockEntryEvent(Operation operation, K key, V oldValue, V newValue) {
 
-		EntryEvent<K, V> mockEntryEvent = mock(EntryEvent.class, withSettings().lenient());
+    EntryEvent<K, V> mockEntryEvent = mock(EntryEvent.class, withSettings().lenient());
 
-		when(mockEntryEvent.getOperation()).thenReturn(operation);
-		when(mockEntryEvent.getKey()).thenReturn(key);
-		when(mockEntryEvent.getOldValue()).thenReturn(oldValue);
-		when(mockEntryEvent.getNewValue()).thenReturn(newValue);
+    when(mockEntryEvent.getOperation()).thenReturn(operation);
+    when(mockEntryEvent.getKey()).thenReturn(key);
+    when(mockEntryEvent.getOldValue()).thenReturn(oldValue);
+    when(mockEntryEvent.getNewValue()).thenReturn(newValue);
 
-		return mockEntryEvent;
-	}
+    return mockEntryEvent;
+  }
 
-	private Session mockSession() {
+  private Session mockSession() {
 
-		String sessionId = UUID.randomUUID().toString();
+    String sessionId = UUID.randomUUID().toString();
 
-		Instant now = Instant.now();
+    Instant now = Instant.now();
 
-		Duration maxInactiveInterval = Duration.ofSeconds(MAX_INACTIVE_INTERVAL_IN_SECONDS);
+    Duration maxInactiveInterval = Duration.ofSeconds(MAX_INACTIVE_INTERVAL_IN_SECONDS);
 
-		Session mockSession = mock(Session.class, withSettings().name(sessionId).lenient());
+    Session mockSession = mock(Session.class, withSettings().name(sessionId).lenient());
 
-		when(mockSession.getId()).thenReturn(sessionId);
-		when(mockSession.getAttributeNames()).thenReturn(Collections.emptySet());
-		when(mockSession.getCreationTime()).thenReturn(now);
-		when(mockSession.getLastAccessedTime()).thenReturn(now);
-		when(mockSession.getMaxInactiveInterval()).thenReturn(maxInactiveInterval);
+    when(mockSession.getId()).thenReturn(sessionId);
+    when(mockSession.getAttributeNames()).thenReturn(Collections.emptySet());
+    when(mockSession.getCreationTime()).thenReturn(now);
+    when(mockSession.getLastAccessedTime()).thenReturn(now);
+    when(mockSession.getMaxInactiveInterval()).thenReturn(maxInactiveInterval);
 
-		return mockSession;
-	}
+    return mockSession;
+  }
 
-	@SuppressWarnings("unused")
-	private Session mockSession(String sessionId) {
-		return mockSession(sessionId, Instant.now().toEpochMilli(), MAX_INACTIVE_INTERVAL_IN_SECONDS);
-	}
+  @SuppressWarnings("unused")
+  private Session mockSession(String sessionId) {
+    return mockSession(sessionId, Instant.now().toEpochMilli(), MAX_INACTIVE_INTERVAL_IN_SECONDS);
+  }
 
-	private Session mockSession(String sessionId, long creationAndLastAccessedTime, long maxInactiveInterval) {
-		return mockSession(sessionId, creationAndLastAccessedTime, creationAndLastAccessedTime, maxInactiveInterval);
-	}
+  private Session mockSession(String sessionId, long creationAndLastAccessedTime, long maxInactiveInterval) {
+    return mockSession(sessionId, creationAndLastAccessedTime, creationAndLastAccessedTime, maxInactiveInterval);
+  }
 
-	private Session mockSession(String sessionId, long creationTime, long lastAccessedTime, long maxInactiveInterval) {
+  private Session mockSession(String sessionId, long creationTime, long lastAccessedTime, long maxInactiveInterval) {
 
-		Session mockSession = mock(Session.class, withSettings().lenient().name(sessionId));
+    Session mockSession = mock(Session.class, withSettings().lenient().name(sessionId));
 
-		when(mockSession.getId()).thenReturn(sessionId);
-		when(mockSession.getCreationTime()).thenReturn(Instant.ofEpochMilli(creationTime));
-		when(mockSession.getLastAccessedTime()).thenReturn(Instant.ofEpochMilli(lastAccessedTime));
-		when(mockSession.getMaxInactiveInterval()).thenReturn(Duration.ofSeconds(maxInactiveInterval));
+    when(mockSession.getId()).thenReturn(sessionId);
+    when(mockSession.getCreationTime()).thenReturn(Instant.ofEpochMilli(creationTime));
+    when(mockSession.getLastAccessedTime()).thenReturn(Instant.ofEpochMilli(lastAccessedTime));
+    when(mockSession.getMaxInactiveInterval()).thenReturn(Duration.ofSeconds(maxInactiveInterval));
 
-		return mockSession;
-	}
+    return mockSession;
+  }
 
-	private GemFireSession newNonDirtyGemFireSession() {
+  private GemFireSession newNonDirtyGemFireSession() {
 
-		GemFireSession session = GemFireSession.create();
+    GemFireSession session = GemFireSession.create();
 
-		session.commit();
+    session.commit();
 
-		return session;
-	}
+    return session;
+  }
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void constructGemFireOperationsSessionRepository() {
+  @Test
+  @SuppressWarnings("unchecked")
+  public void constructGemFireOperationsSessionRepository() {
 
-		ApplicationEventPublisher mockApplicationEventPublisher = mock(ApplicationEventPublisher.class);
+    ApplicationEventPublisher mockApplicationEventPublisher = mock(ApplicationEventPublisher.class);
 
-		AttributesMutator<Object, Session> mockAttributesMutator = mock(AttributesMutator.class);
+    AttributesMutator<Object, Session> mockAttributesMutator = mock(AttributesMutator.class);
 
-		ClientCache mockClientCache = mock(ClientCache.class);
+    ClientCache mockClientCache = mock(ClientCache.class);
 
-		Region<Object, Session> mockRegion = mock(Region.class);
-
-		RegionAttributes<Object, Session> mockRegionAttributes = mock(RegionAttributes.class);
-
-		when(this.mockPool.getSubscriptionEnabled()).thenReturn(true);
-		when(mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
-		when(mockRegion.getAttributesMutator()).thenReturn(mockAttributesMutator);
-		when(mockRegion.getFullPath()).thenReturn(RegionUtils.toRegionPath("Example"));
-		when(mockRegion.getRegionService()).thenReturn(mockClientCache);
-		when(mockRegionAttributes.getPoolName()).thenReturn("Dead");
+    Region<Object, Session> mockRegion = mock(Region.class);
+
+    RegionAttributes<Object, Session> mockRegionAttributes = mock(RegionAttributes.class);
 
-		GemfireTemplate template = new GemfireTemplate(mockRegion);
+    when(this.mockPool.getSubscriptionEnabled()).thenReturn(true);
+    when(mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
+    when(mockRegion.getAttributesMutator()).thenReturn(mockAttributesMutator);
+    when(mockRegion.getFullPath()).thenReturn(RegionUtils.toRegionPath("Example"));
+    when(mockRegion.getRegionService()).thenReturn(mockClientCache);
+    when(mockRegionAttributes.getPoolName()).thenReturn("Dead");
 
-		AbstractGemFireOperationsSessionRepository sessionRepository =
-			new TestGemFireOperationsSessionRepository(template);
+    GemfireTemplate template = new GemfireTemplate(mockRegion);
 
-		assertThat(sessionRepository.getApplicationEventPublisher()).isInstanceOf(ApplicationEventPublisher.class);
-		assertThat(sessionRepository.getApplicationEventPublisher()).isNotEqualTo(mockApplicationEventPublisher);
-		assertThat(sessionRepository.getMaxInactiveIntervalInSeconds())
-			.isEqualTo(GemFireHttpSessionConfiguration.DEFAULT_MAX_INACTIVE_INTERVAL_IN_SECONDS);
-		assertThat(sessionRepository.isRegisterInterestEnabled()).isTrue();
-		assertThat(sessionRepository.getSessionEventHandler().orElse(null))
-			.isInstanceOf(SessionEventHandlerCacheListenerAdapter.class);
-		assertThat(sessionRepository.getSessionsRegion()).isSameAs(mockRegion);
-		assertThat(sessionRepository.getSessionsRegionName()).isEqualTo(RegionUtils.toRegionPath("Example"));
-		assertThat(sessionRepository.getSessionsTemplate()).isSameAs(template);
-		assertThat(AbstractGemFireOperationsSessionRepository.isUsingDataSerialization()).isFalse();
+    AbstractGemFireOperationsSessionRepository sessionRepository =
+        new TestGemFireOperationsSessionRepository(template);
 
-		sessionRepository.setApplicationEventPublisher(mockApplicationEventPublisher);
-		sessionRepository.setMaxInactiveIntervalInSeconds(300);
+    assertThat(sessionRepository.getApplicationEventPublisher()).isInstanceOf(ApplicationEventPublisher.class);
+    assertThat(sessionRepository.getApplicationEventPublisher()).isNotEqualTo(mockApplicationEventPublisher);
+    assertThat(sessionRepository.getMaxInactiveIntervalInSeconds())
+        .isEqualTo(GemFireHttpSessionConfiguration.DEFAULT_MAX_INACTIVE_INTERVAL_IN_SECONDS);
+    assertThat(sessionRepository.isRegisterInterestEnabled()).isTrue();
+    assertThat(sessionRepository.getSessionEventHandler().orElse(null))
+        .isInstanceOf(SessionEventHandlerCacheListenerAdapter.class);
+    assertThat(sessionRepository.getSessionsRegion()).isSameAs(mockRegion);
+    assertThat(sessionRepository.getSessionsRegionName()).isEqualTo(RegionUtils.toRegionPath("Example"));
+    assertThat(sessionRepository.getSessionsTemplate()).isSameAs(template);
+    assertThat(AbstractGemFireOperationsSessionRepository.isUsingDataSerialization()).isFalse();
 
-		assertThat(sessionRepository.getApplicationEventPublisher()).isSameAs(mockApplicationEventPublisher);
-		assertThat(sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(300);
+    sessionRepository.setApplicationEventPublisher(mockApplicationEventPublisher);
+    sessionRepository.setMaxInactiveIntervalInSeconds(300);
 
-		verify(this.mockPool, times(1)).getSubscriptionEnabled();
-		verify(mockRegion, times(2)).getAttributes();
-		verify(mockRegion, times(1)).getAttributesMutator();
-		verify(mockRegion, times(1)).getFullPath();
-		verify(mockRegion, times(1)).getRegionService();
-		verify(mockRegionAttributes, times(2)).getPoolName();
-		verify(mockAttributesMutator, times(1))
-			.addCacheListener(isA(SessionEventHandlerCacheListenerAdapter.class));
-		verify(mockAttributesMutator, times(1))
-			.addCacheListener(isA(SessionIdInterestRegisteringCacheListener.class));
-	}
+    assertThat(sessionRepository.getApplicationEventPublisher()).isSameAs(mockApplicationEventPublisher);
+    assertThat(sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(300);
 
-	@Test(expected = IllegalArgumentException.class)
-	public void constructGemFireOperationsSessionRepositoryWithNullTemplate() {
+    verify(this.mockPool, times(1)).getSubscriptionEnabled();
+    verify(mockRegion, times(2)).getAttributes();
+    verify(mockRegion, times(1)).getAttributesMutator();
+    verify(mockRegion, times(1)).getFullPath();
+    verify(mockRegion, times(1)).getRegionService();
+    verify(mockRegionAttributes, times(2)).getPoolName();
+    verify(mockAttributesMutator, times(1))
+        .addCacheListener(isA(SessionEventHandlerCacheListenerAdapter.class));
+    verify(mockAttributesMutator, times(1))
+        .addCacheListener(isA(SessionIdInterestRegisteringCacheListener.class));
+  }
 
-		try {
-			new TestGemFireOperationsSessionRepository(null);
-		}
-		catch (IllegalArgumentException expected) {
+  @Test(expected = IllegalArgumentException.class)
+  public void constructGemFireOperationsSessionRepositoryWithNullTemplate() {
 
-			assertThat(expected).hasMessage("GemfireOperations is required");
-			assertThat(expected).hasNoCause();
+    try {
+      new TestGemFireOperationsSessionRepository(null);
+    } catch (IllegalArgumentException expected) {
 
-			throw expected;
-		}
-	}
+      assertThat(expected).hasMessage("GemfireOperations is required");
+      assertThat(expected).hasNoCause();
 
-	@Test(expected = IllegalStateException.class)
-	public void constructGemFireOperationSessionRepositoryWithUnresolvableRegion() {
+      throw expected;
+    }
+  }
 
-		GemfireOperations mockGemfireOperations = mock(GemfireOperations.class);
+  @Test(expected = IllegalStateException.class)
+  public void constructGemFireOperationSessionRepositoryWithUnresolvableRegion() {
 
-		try {
-			new TestGemFireOperationsSessionRepository(mockGemfireOperations);
-		}
-		catch (IllegalStateException expected) {
+    GemfireOperations mockGemfireOperations = mock(GemfireOperations.class);
 
-			assertThat(expected).hasMessage("The ClusteredSpringSessions Region could not be resolved");
-			assertThat(expected).hasNoCause();
+    try {
+      new TestGemFireOperationsSessionRepository(mockGemfireOperations);
+    } catch (IllegalStateException expected) {
 
-			throw expected;
-		}
-	}
+      assertThat(expected).hasMessage("The ClusteredSpringSessions Region could not be resolved");
+      assertThat(expected).hasNoCause();
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void isRegionPoolSubscriptionEnabledReturnsTrue() {
+      throw expected;
+    }
+  }
 
-		RegionAttributes<Object, Session> mockRegionAttributes = mock(RegionAttributes.class);
+  @Test
+  @SuppressWarnings("unchecked")
+  public void isRegionPoolSubscriptionEnabledReturnsTrue() {
 
-		when(mockRegionAttributes.getPoolName()).thenReturn("Dead");
-		when(this.mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
-		when(this.mockPool.getSubscriptionEnabled()).thenReturn(true);
-		doReturn(this.mockPool).when(this.sessionRepository).resolvePool(anyString());
+    RegionAttributes<Object, Session> mockRegionAttributes = mock(RegionAttributes.class);
 
-		assertThat(this.sessionRepository.isRegionPoolSubscriptionEnabled(this.mockRegion)).isTrue();
+    when(mockRegionAttributes.getPoolName()).thenReturn("Dead");
+    when(this.mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
+    when(this.mockPool.getSubscriptionEnabled()).thenReturn(true);
+    doReturn(this.mockPool).when(this.sessionRepository).resolvePool(anyString());
 
-		verify(this.mockRegion, times(1)).getAttributes();
-		verify(mockRegionAttributes, times(1)).getPoolName();
-		verify(this.sessionRepository, times(1)).resolvePool(eq("Dead"));
-	}
+    assertThat(this.sessionRepository.isRegionPoolSubscriptionEnabled(this.mockRegion)).isTrue();
 
-	@Test
-	public void isRegionPoolSubscriptionEnabledReturnsFalseForNullRegion() {
+    verify(this.mockRegion, times(1)).getAttributes();
+    verify(mockRegionAttributes, times(1)).getPoolName();
+    verify(this.sessionRepository, times(1)).resolvePool(eq("Dead"));
+  }
 
-		assertThat(this.sessionRepository.isRegionPoolSubscriptionEnabled(null)).isFalse();
+  @Test
+  public void isRegionPoolSubscriptionEnabledReturnsFalseForNullRegion() {
 
-		verify(this.sessionRepository, never()).resolvePool(anyString());
-	}
+    assertThat(this.sessionRepository.isRegionPoolSubscriptionEnabled(null)).isFalse();
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void isRegionPoolSubscriptionEnabledReturnsFalseForUnresolvablePool() {
+    verify(this.sessionRepository, never()).resolvePool(anyString());
+  }
 
-		RegionAttributes<Object, Session> mockRegionAttributes = mock(RegionAttributes.class);
+  @Test
+  @SuppressWarnings("unchecked")
+  public void isRegionPoolSubscriptionEnabledReturnsFalseForUnresolvablePool() {
 
-		when(mockRegionAttributes.getPoolName()).thenReturn("Swimming");
-		when(this.mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
-		doReturn(null).when(this.sessionRepository).resolvePool(anyString());
+    RegionAttributes<Object, Session> mockRegionAttributes = mock(RegionAttributes.class);
 
-		assertThat(this.sessionRepository.isRegionPoolSubscriptionEnabled(this.mockRegion)).isFalse();
+    when(mockRegionAttributes.getPoolName()).thenReturn("Swimming");
+    when(this.mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
+    doReturn(null).when(this.sessionRepository).resolvePool(anyString());
 
-		verify(this.mockRegion, times(1)).getAttributes();
-		verify(mockRegionAttributes, times(1)).getPoolName();
-		verify(this.sessionRepository, times(1)).resolvePool(eq("Swimming"));
-	}
+    assertThat(this.sessionRepository.isRegionPoolSubscriptionEnabled(this.mockRegion)).isFalse();
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void isRegionPoolSubscriptionEnabledReturnsFalseWhenPoolSubscriptionIsDisabled() {
+    verify(this.mockRegion, times(1)).getAttributes();
+    verify(mockRegionAttributes, times(1)).getPoolName();
+    verify(this.sessionRepository, times(1)).resolvePool(eq("Swimming"));
+  }
 
-		RegionAttributes<Object, Session> mockRegionAttributes = mock(RegionAttributes.class);
+  @Test
+  @SuppressWarnings("unchecked")
+  public void isRegionPoolSubscriptionEnabledReturnsFalseWhenPoolSubscriptionIsDisabled() {
 
-		when(mockRegionAttributes.getPoolName()).thenReturn("Swimming");
-		when(this.mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
-		when(this.mockPool.getSubscriptionEnabled()).thenReturn(false);
-		doReturn(this.mockPool).when(this.sessionRepository).resolvePool(anyString());
+    RegionAttributes<Object, Session> mockRegionAttributes = mock(RegionAttributes.class);
 
-		assertThat(this.sessionRepository.isRegionPoolSubscriptionEnabled(this.mockRegion)).isFalse();
+    when(mockRegionAttributes.getPoolName()).thenReturn("Swimming");
+    when(this.mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
+    when(this.mockPool.getSubscriptionEnabled()).thenReturn(false);
+    doReturn(this.mockPool).when(this.sessionRepository).resolvePool(anyString());
 
-		verify(this.mockRegion, times(1)).getAttributes();
-		verify(mockRegionAttributes, times(1)).getPoolName();
-		verify(this.sessionRepository, times(1)).resolvePool(eq("Swimming"));
-		verify(this.mockPool, times(1)).getSubscriptionEnabled();
-	}
+    assertThat(this.sessionRepository.isRegionPoolSubscriptionEnabled(this.mockRegion)).isFalse();
 
-	@Test
-	public void isRegionRegisterInterestAllowedCallsIsNonLocalClientRegionAndIsRegionPoolSubscriptionEnabledReturnsTrue() {
+    verify(this.mockRegion, times(1)).getAttributes();
+    verify(mockRegionAttributes, times(1)).getPoolName();
+    verify(this.sessionRepository, times(1)).resolvePool(eq("Swimming"));
+    verify(this.mockPool, times(1)).getSubscriptionEnabled();
+  }
 
-		doReturn(true).when(this.sessionRepository).isNonLocalClientRegion(any(Region.class));
-		doReturn(true).when(this.sessionRepository).isRegionPoolSubscriptionEnabled(any(Region.class));
+  @Test
+  public void isRegionRegisterInterestAllowedCallsIsNonLocalClientRegionAndIsRegionPoolSubscriptionEnabledReturnsTrue() {
 
-		assertThat(this.sessionRepository.isRegionRegisterInterestAllowed(this.mockRegion)).isTrue();
+    doReturn(true).when(this.sessionRepository).isNonLocalClientRegion(any(Region.class));
+    doReturn(true).when(this.sessionRepository).isRegionPoolSubscriptionEnabled(any(Region.class));
 
-		verify(this.sessionRepository, times(1)).isNonLocalClientRegion(eq(this.mockRegion));
-		verify(this.sessionRepository, times(1)).isRegionPoolSubscriptionEnabled(eq(this.mockRegion));
-	}
+    assertThat(this.sessionRepository.isRegionRegisterInterestAllowed(this.mockRegion)).isTrue();
 
-	@Test
-	public void isRegionRegisterInterestAllowedCallsIsNonLocalClientRegionAndIsRegionPoolSubscriptionEnabledReturnsFalse() {
+    verify(this.sessionRepository, times(1)).isNonLocalClientRegion(eq(this.mockRegion));
+    verify(this.sessionRepository, times(1)).isRegionPoolSubscriptionEnabled(eq(this.mockRegion));
+  }
 
-		doReturn(true).when(this.sessionRepository).isNonLocalClientRegion(any(Region.class));
-		doReturn(false).when(this.sessionRepository).isRegionPoolSubscriptionEnabled(any(Region.class));
+  @Test
+  public void isRegionRegisterInterestAllowedCallsIsNonLocalClientRegionAndIsRegionPoolSubscriptionEnabledReturnsFalse() {
 
-		assertThat(this.sessionRepository.isRegionRegisterInterestAllowed(this.mockRegion)).isFalse();
+    doReturn(true).when(this.sessionRepository).isNonLocalClientRegion(any(Region.class));
+    doReturn(false).when(this.sessionRepository).isRegionPoolSubscriptionEnabled(any(Region.class));
 
-		verify(this.sessionRepository, times(1)).isNonLocalClientRegion(eq(this.mockRegion));
-		verify(this.sessionRepository, times(1)).isRegionPoolSubscriptionEnabled(eq(this.mockRegion));
-	}
+    assertThat(this.sessionRepository.isRegionRegisterInterestAllowed(this.mockRegion)).isFalse();
 
-	@Test
-	public void isRegionRegisterInterestAllowedCallsIsNonLocalClientRegionAndIsRegionPoolSubscriptionEnabledReturnsFalseAgain() {
+    verify(this.sessionRepository, times(1)).isNonLocalClientRegion(eq(this.mockRegion));
+    verify(this.sessionRepository, times(1)).isRegionPoolSubscriptionEnabled(eq(this.mockRegion));
+  }
 
-		doReturn(false).when(this.sessionRepository).isNonLocalClientRegion(any(Region.class));
+  @Test
+  public void isRegionRegisterInterestAllowedCallsIsNonLocalClientRegionAndIsRegionPoolSubscriptionEnabledReturnsFalseAgain() {
 
-		assertThat(this.sessionRepository.isRegionRegisterInterestAllowed(this.mockRegion)).isFalse();
+    doReturn(false).when(this.sessionRepository).isNonLocalClientRegion(any(Region.class));
 
-		verify(this.sessionRepository, times(1)).isNonLocalClientRegion(eq(this.mockRegion));
-		verify(this.sessionRepository, never()).isRegionPoolSubscriptionEnabled(eq(this.mockRegion));
-	}
+    assertThat(this.sessionRepository.isRegionRegisterInterestAllowed(this.mockRegion)).isFalse();
 
-	@Test
-	public void setAndGetApplicationEventPublisher() {
+    verify(this.sessionRepository, times(1)).isNonLocalClientRegion(eq(this.mockRegion));
+    verify(this.sessionRepository, never()).isRegionPoolSubscriptionEnabled(eq(this.mockRegion));
+  }
 
-		assertThat(this.sessionRepository.getApplicationEventPublisher()).isNotNull();
+  @Test
+  public void setAndGetApplicationEventPublisher() {
 
-		ApplicationEventPublisher mockApplicationEventPublisher = mock(ApplicationEventPublisher.class);
+    assertThat(this.sessionRepository.getApplicationEventPublisher()).isNotNull();
 
-		this.sessionRepository.setApplicationEventPublisher(mockApplicationEventPublisher);
+    ApplicationEventPublisher mockApplicationEventPublisher = mock(ApplicationEventPublisher.class);
 
-		assertThat(this.sessionRepository.getApplicationEventPublisher()).isSameAs(mockApplicationEventPublisher);
-	}
+    this.sessionRepository.setApplicationEventPublisher(mockApplicationEventPublisher);
 
-	@Test(expected = IllegalArgumentException.class)
-	public void setApplicationEventPublisherToNull() {
+    assertThat(this.sessionRepository.getApplicationEventPublisher()).isSameAs(mockApplicationEventPublisher);
+  }
 
-		try {
-			this.sessionRepository.setApplicationEventPublisher(null);
-		}
-		catch (IllegalArgumentException expected) {
+  @Test(expected = IllegalArgumentException.class)
+  public void setApplicationEventPublisherToNull() {
 
-			assertThat(expected).hasMessage("ApplicationEventPublisher is required");
-			assertThat(expected).hasNoCause();
+    try {
+      this.sessionRepository.setApplicationEventPublisher(null);
+    } catch (IllegalArgumentException expected) {
 
-			throw expected;
-		}
-	}
+      assertThat(expected).hasMessage("ApplicationEventPublisher is required");
+      assertThat(expected).hasNoCause();
 
-	@Test
-	public void getFullyQualifiedRegionNameUsesRegionFullPath() {
+      throw expected;
+    }
+  }
 
-		when(this.mockRegion.getFullPath()).thenReturn("/Sessions/Region/Full/Path");
+  @Test
+  public void getFullyQualifiedRegionNameUsesRegionFullPath() {
 
-		assertThat(this.sessionRepository.getSessionsRegionName()).isEqualTo("/Sessions/Region/Full/Path");
+    when(this.mockRegion.getFullPath()).thenReturn("/Sessions/Region/Full/Path");
 
-		verify(this.sessionRepository, times(1)).getSessionsRegion();
-		verify(this.mockRegion, times(1)).getFullPath();
-	}
+    assertThat(this.sessionRepository.getSessionsRegionName()).isEqualTo("/Sessions/Region/Full/Path");
 
-	@Test
-	public void setAndGetIsDirtyPredicate() {
+    verify(this.sessionRepository, times(1)).getSessionsRegion();
+    verify(this.mockRegion, times(1)).getFullPath();
+  }
 
-		assertThat(this.sessionRepository.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+  @Test
+  public void setAndGetIsDirtyPredicate() {
 
-		IsDirtyPredicate mockDirtyPredicate = mock(IsDirtyPredicate.class);
+    assertThat(this.sessionRepository.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
 
-		this.sessionRepository.setIsDirtyPredicate(mockDirtyPredicate);
+    IsDirtyPredicate mockDirtyPredicate = mock(IsDirtyPredicate.class);
 
-		assertThat(this.sessionRepository.getIsDirtyPredicate()).isEqualTo(mockDirtyPredicate);
+    this.sessionRepository.setIsDirtyPredicate(mockDirtyPredicate);
 
-		this.sessionRepository.setIsDirtyPredicate(null);
+    assertThat(this.sessionRepository.getIsDirtyPredicate()).isEqualTo(mockDirtyPredicate);
 
-		assertThat(this.sessionRepository.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    this.sessionRepository.setIsDirtyPredicate(null);
 
-		this.sessionRepository.setIsDirtyPredicate(EqualsDirtyPredicate.INSTANCE);
+    assertThat(this.sessionRepository.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
 
-		assertThat(this.sessionRepository.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
-	}
+    this.sessionRepository.setIsDirtyPredicate(EqualsDirtyPredicate.INSTANCE);
 
-	@Test
-	public void setAndGetMaxInactiveInterval() {
+    assertThat(this.sessionRepository.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
+  }
 
-		assertThat(this.sessionRepository.getMaxInactiveInterval())
-			.isEqualTo(Duration.ofSeconds(GemFireHttpSessionConfiguration.DEFAULT_MAX_INACTIVE_INTERVAL_IN_SECONDS));
+  @Test
+  public void setAndGetMaxInactiveInterval() {
 
-		Duration tenMinutes = Duration.ofMinutes(10);
+    assertThat(this.sessionRepository.getMaxInactiveInterval())
+        .isEqualTo(Duration.ofSeconds(GemFireHttpSessionConfiguration.DEFAULT_MAX_INACTIVE_INTERVAL_IN_SECONDS));
 
-		this.sessionRepository.setMaxInactiveInterval(tenMinutes);
+    Duration tenMinutes = Duration.ofMinutes(10);
 
-		assertThat(this.sessionRepository.getMaxInactiveInterval()).isEqualTo(tenMinutes);
-		assertThat(this.sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(600);
-	}
+    this.sessionRepository.setMaxInactiveInterval(tenMinutes);
 
-	@Test
-	public void setMaxInactiveIntervalToNull() {
+    assertThat(this.sessionRepository.getMaxInactiveInterval()).isEqualTo(tenMinutes);
+    assertThat(this.sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(600);
+  }
 
-		assertThat(this.sessionRepository.getMaxInactiveInterval())
-			.isEqualTo(Duration.ofSeconds(GemFireHttpSessionConfiguration.DEFAULT_MAX_INACTIVE_INTERVAL_IN_SECONDS));
+  @Test
+  public void setMaxInactiveIntervalToNull() {
 
-		this.sessionRepository.setMaxInactiveInterval(null);
+    assertThat(this.sessionRepository.getMaxInactiveInterval())
+        .isEqualTo(Duration.ofSeconds(GemFireHttpSessionConfiguration.DEFAULT_MAX_INACTIVE_INTERVAL_IN_SECONDS));
 
-		assertThat(this.sessionRepository.getMaxInactiveInterval()).isNull();
-	}
+    this.sessionRepository.setMaxInactiveInterval(null);
 
-	@Test
-	public void setMaxInactiveIntervalUsingSeconds() {
+    assertThat(this.sessionRepository.getMaxInactiveInterval()).isNull();
+  }
 
-		assertThat(this.sessionRepository.getMaxInactiveInterval())
-			.isEqualTo(Duration.ofSeconds(GemFireHttpSessionConfiguration.DEFAULT_MAX_INACTIVE_INTERVAL_IN_SECONDS));
+  @Test
+  public void setMaxInactiveIntervalUsingSeconds() {
 
-		this.sessionRepository.setMaxInactiveIntervalInSeconds(300);
+    assertThat(this.sessionRepository.getMaxInactiveInterval())
+        .isEqualTo(Duration.ofSeconds(GemFireHttpSessionConfiguration.DEFAULT_MAX_INACTIVE_INTERVAL_IN_SECONDS));
 
-		assertThat(this.sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(300);
-		assertThat(this.sessionRepository.getMaxInactiveInterval()).isEqualTo(Duration.ofMinutes(5));
-	}
+    this.sessionRepository.setMaxInactiveIntervalInSeconds(300);
 
-	@Test
-	public void setMaxInactiveIntervalInSecondsAllowsExtremelyLargeAndNegativeValues() {
+    assertThat(this.sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(300);
+    assertThat(this.sessionRepository.getMaxInactiveInterval()).isEqualTo(Duration.ofMinutes(5));
+  }
 
-		assertThat(this.sessionRepository.getMaxInactiveIntervalInSeconds())
-			.isEqualTo(GemFireHttpSessionConfiguration.DEFAULT_MAX_INACTIVE_INTERVAL_IN_SECONDS);
+  @Test
+  public void setMaxInactiveIntervalInSecondsAllowsExtremelyLargeAndNegativeValues() {
 
-		this.sessionRepository.setMaxInactiveIntervalInSeconds(-1);
+    assertThat(this.sessionRepository.getMaxInactiveIntervalInSeconds())
+        .isEqualTo(GemFireHttpSessionConfiguration.DEFAULT_MAX_INACTIVE_INTERVAL_IN_SECONDS);
 
-		assertThat(this.sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(-1);
+    this.sessionRepository.setMaxInactiveIntervalInSeconds(-1);
 
-		this.sessionRepository.setMaxInactiveIntervalInSeconds(Integer.MIN_VALUE);
+    assertThat(this.sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(-1);
 
-		assertThat(this.sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(Integer.MIN_VALUE);
+    this.sessionRepository.setMaxInactiveIntervalInSeconds(Integer.MIN_VALUE);
 
-		this.sessionRepository.setMaxInactiveIntervalInSeconds(1024000);
+    assertThat(this.sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(Integer.MIN_VALUE);
 
-		assertThat(this.sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(1024000);
+    this.sessionRepository.setMaxInactiveIntervalInSeconds(1024000);
 
-		this.sessionRepository.setMaxInactiveIntervalInSeconds(Integer.MAX_VALUE);
+    assertThat(this.sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(1024000);
 
-		assertThat(this.sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(Integer.MAX_VALUE);
-	}
+    this.sessionRepository.setMaxInactiveIntervalInSeconds(Integer.MAX_VALUE);
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void isRegisterInterestEnabledReturnsTrue() {
+    assertThat(this.sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(Integer.MAX_VALUE);
+  }
 
-		AttributesMutator mockAttributesMutator = mock(AttributesMutator.class);
+  @Test
+  @SuppressWarnings("unchecked")
+  public void isRegisterInterestEnabledReturnsTrue() {
 
-		ClientCache mockClientCache = mock(ClientCache.class);
+    AttributesMutator mockAttributesMutator = mock(AttributesMutator.class);
 
-		Region mockRegion = mock(Region.class);
+    ClientCache mockClientCache = mock(ClientCache.class);
 
-		RegionAttributes mockRegionAttributes = mock(RegionAttributes.class);
+    Region mockRegion = mock(Region.class);
 
-		when(this.mockPool.getSubscriptionEnabled()).thenReturn(true);
-		when(mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
-		when(mockRegion.getAttributesMutator()).thenReturn(mockAttributesMutator);
-		when(mockRegion.getRegionService()).thenReturn(mockClientCache);
-		when(mockRegionAttributes.getPoolName()).thenReturn("Dead");
+    RegionAttributes mockRegionAttributes = mock(RegionAttributes.class);
 
-		AbstractGemFireOperationsSessionRepository sessionRepository =
-			new TestGemFireOperationsSessionRepository(new GemfireTemplate(mockRegion));
+    when(this.mockPool.getSubscriptionEnabled()).thenReturn(true);
+    when(mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
+    when(mockRegion.getAttributesMutator()).thenReturn(mockAttributesMutator);
+    when(mockRegion.getRegionService()).thenReturn(mockClientCache);
+    when(mockRegionAttributes.getPoolName()).thenReturn("Dead");
 
-		assertThat(sessionRepository).isNotNull();
-		assertThat(sessionRepository.isRegisterInterestEnabled()).isTrue();
-	}
+    AbstractGemFireOperationsSessionRepository sessionRepository =
+        new TestGemFireOperationsSessionRepository(new GemfireTemplate(mockRegion));
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void isRegisterInterestEnabledReturnsFalse() {
+    assertThat(sessionRepository).isNotNull();
+    assertThat(sessionRepository.isRegisterInterestEnabled()).isTrue();
+  }
 
-		Region mockRegion = mock(Region.class);
+  @Test
+  @SuppressWarnings("unchecked")
+  public void isRegisterInterestEnabledReturnsFalse() {
 
-		AbstractGemFireOperationsSessionRepository sessionRepository =
-			new TestGemFireOperationsSessionRepository(new GemfireTemplate(mockRegion));
+    Region mockRegion = mock(Region.class);
 
-		assertThat(sessionRepository).isNotNull();
-		assertThat(sessionRepository.isRegisterInterestEnabled()).isFalse();
-	}
+    AbstractGemFireOperationsSessionRepository sessionRepository =
+        new TestGemFireOperationsSessionRepository(new GemfireTemplate(mockRegion));
 
-	@Test
-	public void setAndIsUsingDataSerialization() {
+    assertThat(sessionRepository).isNotNull();
+    assertThat(sessionRepository.isRegisterInterestEnabled()).isFalse();
+  }
 
-		assertThat(GemFireOperationsSessionRepository.isUsingDataSerialization()).isFalse();
+  @Test
+  public void setAndIsUsingDataSerialization() {
 
-		this.sessionRepository.setUseDataSerialization(true);
+    assertThat(GemFireOperationsSessionRepository.isUsingDataSerialization()).isFalse();
 
-		assertThat(GemFireOperationsSessionRepository.isUsingDataSerialization()).isTrue();
+    this.sessionRepository.setUseDataSerialization(true);
 
-		this.sessionRepository.setUseDataSerialization(false);
+    assertThat(GemFireOperationsSessionRepository.isUsingDataSerialization()).isTrue();
 
-		assertThat(GemFireOperationsSessionRepository.isUsingDataSerialization()).isFalse();
-	}
+    this.sessionRepository.setUseDataSerialization(false);
 
-	@Test
-	public void commitGemFireSessionIsCorrect() {
+    assertThat(GemFireOperationsSessionRepository.isUsingDataSerialization()).isFalse();
+  }
 
-		GemFireSession<?> session = spy(GemFireSession.create());
+  @Test
+  public void commitGemFireSessionIsCorrect() {
 
-		assertThat(session).isNotNull();
-		assertThat(session.hasDelta()).isTrue();
+    GemFireSession<?> session = spy(GemFireSession.create());
 
-		this.sessionRepository.commit(session);
+    assertThat(session).isNotNull();
+    assertThat(session.hasDelta()).isTrue();
 
-		assertThat(session.hasDelta()).isFalse();
+    this.sessionRepository.commit(session);
 
-		verify(session, times(1)).commit();
-	}
+    assertThat(session.hasDelta()).isFalse();
 
-	@Test
-	public void commitNonGemFireSessionIsSafe() {
-		this.sessionRepository.commit(this.mockSession);
-	}
+    verify(session, times(1)).commit();
+  }
 
-	@Test
-	public void commitNullIsSafe() {
-		this.sessionRepository.commit(null);
-	}
+  @Test
+  public void commitNonGemFireSessionIsSafe() {
+    this.sessionRepository.commit(this.mockSession);
+  }
 
-	@Test
-	public void configureWithGemFireSession() {
+  @Test
+  public void commitNullIsSafe() {
+    this.sessionRepository.commit(null);
+  }
 
-		GemFireSession<?> session = GemFireSession.create();
+  @Test
+  public void configureWithGemFireSession() {
 
-		assertThat(session).isNotNull();
-		assertThat(session.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
-		assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
+    GemFireSession<?> session = GemFireSession.create();
 
-		this.sessionRepository.setIsDirtyPredicate(EqualsDirtyPredicate.INSTANCE);
-		this.sessionRepository.setMaxInactiveIntervalInSeconds(300);
-		this.sessionRepository.configure(session);
+    assertThat(session).isNotNull();
+    assertThat(session.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
 
-		assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ofSeconds(300));
-		assertThat(session.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
+    this.sessionRepository.setIsDirtyPredicate(EqualsDirtyPredicate.INSTANCE);
+    this.sessionRepository.setMaxInactiveIntervalInSeconds(300);
+    this.sessionRepository.configure(session);
 
-		verify(this.sessionRepository, times(1)).getIsDirtyPredicate();
-		verify(this.sessionRepository, times(1)).getMaxInactiveInterval();
-	}
+    assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ofSeconds(300));
+    assertThat(session.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
 
-	@Test
-	public void configureWithNull() {
+    verify(this.sessionRepository, times(1)).getIsDirtyPredicate();
+    verify(this.sessionRepository, times(1)).getMaxInactiveInterval();
+  }
 
-		this.sessionRepository.configure(null);
+  @Test
+  public void configureWithNull() {
 
-		verify(this.sessionRepository, never()).getIsDirtyPredicate();
-		verify(this.sessionRepository, never()).getMaxInactiveInterval();
-	}
+    this.sessionRepository.configure(null);
 
-	@Test
-	public void configureWithSession() {
+    verify(this.sessionRepository, never()).getIsDirtyPredicate();
+    verify(this.sessionRepository, never()).getMaxInactiveInterval();
+  }
 
-		this.sessionRepository.configure(this.mockSession);
+  @Test
+  public void configureWithSession() {
 
-		verify(this.sessionRepository, never()).getIsDirtyPredicate();
-		verify(this.sessionRepository, never()).getMaxInactiveInterval();
-	}
+    this.sessionRepository.configure(this.mockSession);
 
-	@Test
-	public void deleteSessionCallsDeleteSessionById() {
+    verify(this.sessionRepository, never()).getIsDirtyPredicate();
+    verify(this.sessionRepository, never()).getMaxInactiveInterval();
+  }
 
-		doNothing().when(this.sessionRepository).deleteById(anyString());
+  @Test
+  public void deleteSessionCallsDeleteSessionById() {
 
-		when(this.mockSession.getId()).thenReturn("2");
+    doNothing().when(this.sessionRepository).deleteById(anyString());
 
-		assertThat(this.sessionRepository.delete(this.mockSession)).isNull();
+    when(this.mockSession.getId()).thenReturn("2");
 
-		verify(this.mockSession, times(1)).getId();
-		verify(this.sessionRepository, times(1)).deleteById(eq("2"));
-	}
+    assertThat(this.sessionRepository.delete(this.mockSession)).isNull();
 
-	@Test
-	public void handleDeletedSessionForgetsSessionIdPublishesSessionDeletedEventAndUnregistersInterest() {
+    verify(this.mockSession, times(1)).getId();
+    verify(this.sessionRepository, times(1)).deleteById(eq("2"));
+  }
 
-		when(this.mockSession.getId()).thenReturn("12345");
+  @Test
+  public void handleDeletedSessionWhenNoSessionEventHandlerIsPresentDoesNotPublishEventButStillUnregistersInterest() {
 
-		ApplicationEventPublisher mockApplicationEventPublisher = mock(ApplicationEventPublisher.class);
+    doReturn(Optional.empty()).when(this.sessionRepository).getSessionEventHandler();
 
-		doAnswer(invocation -> {
+    this.sessionRepository.handleDeleted("1", this.mockSession);
 
-			ApplicationEvent applicationEvent = invocation.getArgument(0);
+    verify(this.sessionRepository, times(1)).getSessionEventHandler();
+    verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
+    verify(this.sessionRepository, times(1)).unregisterInterest(eq("1"));
+    verifyNoInteractions(this.mockSession);
+  }
 
-			assertThat(applicationEvent).isInstanceOf(SessionDeletedEvent.class);
+  @Test
+  public void publishEventPublishesApplicationEvent() {
 
-			AbstractSessionEvent sessionEvent = (AbstractSessionEvent) applicationEvent;
+    ApplicationEvent mockApplicationEvent = mock(ApplicationEvent.class);
 
-			assertThat(sessionEvent.<Session>getSession()).isEqualTo(this.mockSession);
-			assertThat(sessionEvent.getSessionId()).isEqualTo("12345");
-			assertThat(sessionEvent.getSource()).isEqualTo(this.sessionRepository);
+    ApplicationEventPublisher mockApplicationEventPublisher = mock(ApplicationEventPublisher.class);
 
-			return null;
+    doReturn(mockApplicationEventPublisher).when(this.sessionRepository).getApplicationEventPublisher();
 
-		}).when(mockApplicationEventPublisher).publishEvent(isA(ApplicationEvent.class));
+    this.sessionRepository.publishEvent(mockApplicationEvent);
 
-		SessionEventHandlerCacheListenerAdapter mockSessionEventHandler =
-			mock(SessionEventHandlerCacheListenerAdapter.class);
+    verify(mockApplicationEventPublisher, times(1)).publishEvent(eq(mockApplicationEvent));
+  }
 
-		doReturn(mockApplicationEventPublisher).when(this.sessionRepository).getApplicationEventPublisher();
-		doReturn(Optional.of(mockSessionEventHandler)).when(this.sessionRepository).getSessionEventHandler();
-		doReturn(this.sessionRepository).when(mockSessionEventHandler).getSessionRepository();
-		doCallRealMethod().when(mockSessionEventHandler).afterDelete(anyString(), any(Session.class));
-		doCallRealMethod().when(mockSessionEventHandler).newSessionDeletedEvent(any(Session.class));
-		doCallRealMethod().when(mockSessionEventHandler).toSession(any(), anyString());
+  @Test
+  public void publishEventHandlesThrowable() {
 
-		this.sessionRepository.handleDeleted("12345", this.mockSession);
+    ApplicationEvent mockApplicationEvent = mock(ApplicationEvent.class);
 
-		verify(mockSessionEventHandler, times(1))
-			.afterDelete(eq("12345"), eq(this.mockSession));
-		verify(mockSessionEventHandler, times(1)).forget(eq("12345"));
-		verify(this.sessionRepository, times(1)).publishEvent(isA(SessionDeletedEvent.class));
-		verify(this.sessionRepository, times(1)).unregisterInterest(eq("12345"));
-		verify(mockApplicationEventPublisher, times(1))
-			.publishEvent(isA(SessionDeletedEvent.class));
-		verify(this.mockSession, times(1)).getId();
-		verify(this.mockLog, never()).error(anyString(), any(Throwable.class));
-	}
+    ApplicationEventPublisher mockApplicationEventPublisher = mock(ApplicationEventPublisher.class);
 
-	@Test
-	public void handleDeletedSessionWhenNoSessionEventHandlerIsPresentDoesNotPublishEventButStillUnregistersInterest() {
+    doThrow(new IllegalStateException("test")).when(mockApplicationEventPublisher)
+        .publishEvent(any(ApplicationEvent.class));
 
-		doReturn(Optional.empty()).when(this.sessionRepository).getSessionEventHandler();
+    doReturn(mockApplicationEventPublisher).when(this.sessionRepository).getApplicationEventPublisher();
 
-		this.sessionRepository.handleDeleted("1", this.mockSession);
+    this.sessionRepository.publishEvent(mockApplicationEvent);
 
-		verify(this.sessionRepository, times(1)).getSessionEventHandler();
-		verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
-		verify(this.sessionRepository, times(1)).unregisterInterest(eq("1"));
-		verifyNoInteractions(this.mockSession);
-	}
+    verify(mockApplicationEventPublisher, times(1)).publishEvent(eq(mockApplicationEvent));
 
-	@Test
-	public void publishEventPublishesApplicationEvent() {
+    verify(this.mockLog, times(1))
+        .error(eq(String.format("Error occurred while publishing event [%s]", mockApplicationEvent)),
+            isA(IllegalStateException.class));
+  }
 
-		ApplicationEvent mockApplicationEvent = mock(ApplicationEvent.class);
+  private Session testRegisterInterestWithInvalidSession(Session session) {
 
-		ApplicationEventPublisher mockApplicationEventPublisher = mock(ApplicationEventPublisher.class);
+    doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
 
-		doReturn(mockApplicationEventPublisher).when(this.sessionRepository).getApplicationEventPublisher();
+    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
 
-		this.sessionRepository.publishEvent(mockApplicationEvent);
+    Session returnedSession = this.sessionRepository.registerInterest(session);
 
-		verify(mockApplicationEventPublisher, times(1)).publishEvent(eq(mockApplicationEvent));
-	}
+    verifyNoRegionRegisterInterestCalls(this.mockRegion);
 
-	@Test
-	public void publishEventHandlesThrowable() {
+    return returnedSession;
+  }
 
-		ApplicationEvent mockApplicationEvent = mock(ApplicationEvent.class);
+  private void verifyNoRegionRegisterInterestCalls(Region<?, ?> region) {
 
-		ApplicationEventPublisher mockApplicationEventPublisher = mock(ApplicationEventPublisher.class);
+    verify(region, never()).registerInterest(any());
+    verify(region, never()).registerInterest(any(), anyBoolean());
+    verify(region, never()).registerInterest(any(), anyBoolean(), anyBoolean());
+    verify(region, never()).registerInterest(any(), any(InterestResultPolicy.class));
+    verify(region, never()).registerInterest(any(), any(InterestResultPolicy.class), anyBoolean());
+    verify(region, never()).registerInterest(any(), any(InterestResultPolicy.class), anyBoolean(), anyBoolean());
+  }
 
-		doThrow(new IllegalStateException("test")).when(mockApplicationEventPublisher)
-			.publishEvent(any(ApplicationEvent.class));
+  @Test
+  public void registerInterestIsNullSafe() {
+    assertThat(testRegisterInterestWithInvalidSession(null)).isNull();
+  }
 
-		doReturn(mockApplicationEventPublisher).when(this.sessionRepository).getApplicationEventPublisher();
+  @Test
+  public void registerInterestWhenRegisteringInterestIsNotEnabled() {
 
-		this.sessionRepository.publishEvent(mockApplicationEvent);
+    when(this.mockSession.getId()).thenReturn("1");
+    doReturn(false).when(this.sessionRepository).isRegisterInterestEnabled();
 
-		verify(mockApplicationEventPublisher, times(1)).publishEvent(eq(mockApplicationEvent));
+    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
+    assertThat(this.sessionRepository.registerInterest(this.mockSession)).isSameAs(this.mockSession);
 
-		verify(this.mockLog, times(1))
-			.error(eq(String.format("Error occurred while publishing event [%s]", mockApplicationEvent)),
-				isA(IllegalStateException.class));
-	}
+    verify(this.mockSession, times(1)).getId();
+    verify(this.sessionRepository, times(1)).registerInterest(eq("1"));
+    verify(this.sessionRepository, times(1)).isRegisterInterestEnabled();
+    verifyNoRegionRegisterInterestCalls(this.mockRegion);
+  }
 
-	private Session testRegisterInterestWithInvalidSession(Session session) {
+  @Test
+  public void registerInterestWithSession() {
 
-		doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
+    when(this.mockSession.getId()).thenReturn("1");
+    doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
 
-		assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
+    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
+    assertThat(this.sessionRepository.registerInterest(this.mockSession)).isSameAs(this.mockSession);
 
-		Session returnedSession = this.sessionRepository.registerInterest(session);
+    verify(this.mockSession, times(1)).getId();
+    verify(this.sessionRepository, times(1)).registerInterest(eq("1"));
+    verify(this.sessionRepository, times(1)).isRegisterInterestEnabled();
+    verify(this.mockRegion, times(1))
+        .registerInterest(eq("1"), eq(InterestResultPolicy.NONE), eq(false), eq(true));
+  }
 
-		verifyNoRegionRegisterInterestCalls(this.mockRegion);
+  @Test
+  public void registerInterestWithSessionHavingEmptyId() {
 
-		return returnedSession;
-	}
+    when(this.mockSession.getId()).thenReturn("");
 
-	private void verifyNoRegionRegisterInterestCalls(Region<?, ?> region) {
+    assertThat(testRegisterInterestWithInvalidSession(this.mockSession)).isEqualTo(this.mockSession);
+  }
 
-		verify(region, never()).registerInterest(any());
-		verify(region, never()).registerInterest(any(), anyBoolean());
-		verify(region, never()).registerInterest(any(), anyBoolean(), anyBoolean());
-		verify(region, never()).registerInterest(any(), any(InterestResultPolicy.class));
-		verify(region, never()).registerInterest(any(), any(InterestResultPolicy.class), anyBoolean());
-		verify(region, never()).registerInterest(any(), any(InterestResultPolicy.class), anyBoolean(), anyBoolean());
-	}
+  @Test
+  public void registerInterestWithSessionHavingNullId() {
 
-	@Test
-	public void registerInterestIsNullSafe() {
-		assertThat(testRegisterInterestWithInvalidSession(null)).isNull();
-	}
+    when(this.mockSession.getId()).thenReturn(null);
 
-	@Test
-	public void registerInterestWhenRegisteringInterestIsNotEnabled() {
+    assertThat(testRegisterInterestWithInvalidSession(this.mockSession)).isEqualTo(this.mockSession);
+  }
 
-		when(this.mockSession.getId()).thenReturn("1");
-		doReturn(false).when(this.sessionRepository).isRegisterInterestEnabled();
+  @Test
+  public void registerInterestWithSessionHavingUnspecifiedId() {
 
-		assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-		assertThat(this.sessionRepository.registerInterest(this.mockSession)).isSameAs(this.mockSession);
+    when(this.mockSession.getId()).thenReturn("  ");
 
-		verify(this.mockSession, times(1)).getId();
-		verify(this.sessionRepository, times(1)).registerInterest(eq("1"));
-		verify(this.sessionRepository, times(1)).isRegisterInterestEnabled();
-		verifyNoRegionRegisterInterestCalls(this.mockRegion);
-	}
+    assertThat(testRegisterInterestWithInvalidSession(this.mockSession)).isEqualTo(this.mockSession);
+  }
 
-	@Test
-	public void registerInterestWithSession() {
+  @Test
+  public void registerInterestWithTheSameSessionTwice() {
 
-		when(this.mockSession.getId()).thenReturn("1");
-		doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
+    when(this.mockSession.getId()).thenReturn("1");
+    doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
 
-		assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-		assertThat(this.sessionRepository.registerInterest(this.mockSession)).isSameAs(this.mockSession);
+    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
+    assertThat(this.sessionRepository.registerInterest(this.mockSession)).isEqualTo(this.mockSession);
+    assertThat(this.sessionRepository.registerInterest(this.mockSession)).isEqualTo(this.mockSession);
 
-		verify(this.mockSession, times(1)).getId();
-		verify(this.sessionRepository, times(1)).registerInterest(eq("1"));
-		verify(this.sessionRepository, times(1)).isRegisterInterestEnabled();
-		verify(this.mockRegion, times(1))
-			.registerInterest(eq("1"), eq(InterestResultPolicy.NONE), eq(false), eq(true));
-	}
+    verify(this.mockSession, times(2)).getId();
+    verify(this.sessionRepository, times(2)).registerInterest(eq("1"));
+    verify(this.sessionRepository, times(2)).isRegisterInterestEnabled();
+    verify(this.mockRegion, times(1))
+        .registerInterest(eq("1"), eq(InterestResultPolicy.NONE), eq(false), eq(true));
+  }
 
-	@Test
-	public void registerInterestWithSessionHavingEmptyId() {
+  @Test
+  public void touchSetsLastAccessedTime() {
 
-		when(this.mockSession.getId()).thenReturn("");
+    assertThat(this.sessionRepository.touch(this.mockSession)).isSameAs(this.mockSession);
 
-		assertThat(testRegisterInterestWithInvalidSession(this.mockSession)).isEqualTo(this.mockSession);
-	}
+    verify(this.mockSession, times(1)).setLastAccessedTime(any(Instant.class));
+  }
 
-	@Test
-	public void registerInterestWithSessionHavingNullId() {
+  @Test
+  public void unregisterInterestIsNullSafe() {
+    assertThat(this.sessionRepository.unregisterInterest(null)).isNull();
+  }
 
-		when(this.mockSession.getId()).thenReturn(null);
+  @Test
+  public void unregisterInterestWhenRegisteringInterestIsDisabled() {
 
-		assertThat(testRegisterInterestWithInvalidSession(this.mockSession)).isEqualTo(this.mockSession);
-	}
+    when(this.mockSession.getId()).thenReturn("1");
+    doReturn(false).when(this.sessionRepository).isRegisterInterestEnabled();
 
-	@Test
-	public void registerInterestWithSessionHavingUnspecifiedId() {
+    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
+    assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
 
-		when(this.mockSession.getId()).thenReturn("  ");
+    verify(this.mockSession, times(1)).getId();
+    verify(this.sessionRepository, times(1)).unregisterInterest(eq("1"));
+    verify(this.sessionRepository, times(1)).isRegisterInterestEnabled();
+    verify(this.mockRegion, never()).unregisterInterest(any());
+  }
 
-		assertThat(testRegisterInterestWithInvalidSession(this.mockSession)).isEqualTo(this.mockSession);
-	}
+  @Test
+  public void unregisterInterestWithRegisteredSession() {
 
-	@Test
-	public void registerInterestWithTheSameSessionTwice() {
+    when(this.mockSession.getId()).thenReturn("1");
+    doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
 
-		when(this.mockSession.getId()).thenReturn("1");
-		doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
+    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
+    assertThat(this.sessionRepository.registerInterest(this.mockSession)).isSameAs(this.mockSession);
+    assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
 
-		assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-		assertThat(this.sessionRepository.registerInterest(this.mockSession)).isEqualTo(this.mockSession);
-		assertThat(this.sessionRepository.registerInterest(this.mockSession)).isEqualTo(this.mockSession);
+    verify(this.mockSession, times(2)).getId();
+    verify(this.sessionRepository, times(1)).unregisterInterest(eq("1"));
+    verify(this.sessionRepository, times(2)).isRegisterInterestEnabled();
+    verify(this.mockRegion, times(1)).unregisterInterest(eq("1"));
+  }
 
-		verify(this.mockSession, times(2)).getId();
-		verify(this.sessionRepository, times(2)).registerInterest(eq("1"));
-		verify(this.sessionRepository, times(2)).isRegisterInterestEnabled();
-		verify(this.mockRegion, times(1))
-			.registerInterest(eq("1"), eq(InterestResultPolicy.NONE), eq(false), eq(true));
-	}
+  @Test
+  public void unregisterInterestWithTheSameSessionTwice() {
 
-	@Test
-	public void touchSetsLastAccessedTime() {
+    when(this.mockSession.getId()).thenReturn("1");
+    doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
 
-		assertThat(this.sessionRepository.touch(this.mockSession)).isSameAs(this.mockSession);
+    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
+    assertThat(this.sessionRepository.registerInterest(this.mockSession)).isSameAs(this.mockSession);
+    assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
+    assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
 
-		verify(this.mockSession, times(1)).setLastAccessedTime(any(Instant.class));
-	}
+    verify(this.mockSession, times(3)).getId();
+    verify(this.sessionRepository, times(2)).unregisterInterest(eq("1"));
+    verify(this.sessionRepository, times(3)).isRegisterInterestEnabled();
+    verify(this.mockRegion, times(1)).unregisterInterest(eq("1"));
+  }
 
-	@Test
-	public void unregisterInterestIsNullSafe() {
-		assertThat(this.sessionRepository.unregisterInterest(null)).isNull();
-	}
+  @Test
+  public void unregisterInterestWithUnknownSession() {
 
-	@Test
-	public void unregisterInterestWhenRegisteringInterestIsDisabled() {
+    when(this.mockSession.getId()).thenReturn("1");
+    doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
 
-		when(this.mockSession.getId()).thenReturn("1");
-		doReturn(false).when(this.sessionRepository).isRegisterInterestEnabled();
+    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
+    assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
 
-		assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-		assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
+    verify(this.mockSession, times(1)).getId();
+    verify(this.sessionRepository, times(1)).unregisterInterest(eq("1"));
+    verify(this.sessionRepository, times(1)).isRegisterInterestEnabled();
+    verify(this.mockRegion, never()).unregisterInterest(any());
+  }
 
-		verify(this.mockSession, times(1)).getId();
-		verify(this.sessionRepository, times(1)).unregisterInterest(eq("1"));
-		verify(this.sessionRepository, times(1)).isRegisterInterestEnabled();
-		verify(this.mockRegion, never()).unregisterInterest(any());
-	}
+  @Test
+  public void constructSessionEventHandlerCacheListenerAdapter() {
 
-	@Test
-	public void unregisterInterestWithRegisteredSession() {
+    AbstractGemFireOperationsSessionRepository mockSessionRepository =
+        mock(AbstractGemFireOperationsSessionRepository.class);
 
-		when(this.mockSession.getId()).thenReturn("1");
-		doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
+    SessionEventHandlerCacheListenerAdapter sessionEventHanlder =
+        new SessionEventHandlerCacheListenerAdapter(mockSessionRepository, new BoundedRingHashSet(10));
 
-		assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-		assertThat(this.sessionRepository.registerInterest(this.mockSession)).isSameAs(this.mockSession);
-		assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
+    assertThat(sessionEventHanlder).isNotNull();
+    assertThat(sessionEventHanlder.getSessionRepository()).isSameAs(mockSessionRepository);
+  }
 
-		verify(this.mockSession, times(2)).getId();
-		verify(this.sessionRepository, times(1)).unregisterInterest(eq("1"));
-		verify(this.sessionRepository, times(2)).isRegisterInterestEnabled();
-		verify(this.mockRegion, times(1)).unregisterInterest(eq("1"));
-	}
+  @Test(expected = IllegalArgumentException.class)
+  public void constructSessionEventHandlerCacheListenerAdapterWithNull() {
 
-	@Test
-	public void unregisterInterestWithTheSameSessionTwice() {
+    try {
+      new SessionEventHandlerCacheListenerAdapter(null, new BoundedRingHashSet(10));
+    } catch (IllegalArgumentException expected) {
 
-		when(this.mockSession.getId()).thenReturn("1");
-		doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
+      assertThat(expected).hasMessage("SessionRepository is required");
+      assertThat(expected).hasNoCause();
 
-		assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-		assertThat(this.sessionRepository.registerInterest(this.mockSession)).isSameAs(this.mockSession);
-		assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
-		assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
+      throw expected;
+    }
+  }
 
-		verify(this.mockSession, times(3)).getId();
-		verify(this.sessionRepository, times(2)).unregisterInterest(eq("1"));
-		verify(this.sessionRepository, times(3)).isRegisterInterestEnabled();
-		verify(this.mockRegion, times(1)).unregisterInterest(eq("1"));
-	}
+  @Test
+  public void newSessionEventHandlerCacheListenerAdapterUsingSessionRepository() {
 
-	@Test
-	public void unregisterInterestWithUnknownSession() {
+    SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler(new BoundedRingHashSet(1));
 
-		when(this.mockSession.getId()).thenReturn("1");
-		doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
+    assertThat(sessionEventHandler).isNotNull();
+    assertThat(sessionEventHandler.getSessionRepository()).isSameAs(this.sessionRepository);
+  }
 
-		assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-		assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
 
-		verify(this.mockSession, times(1)).getId();
-		verify(this.sessionRepository, times(1)).unregisterInterest(eq("1"));
-		verify(this.sessionRepository, times(1)).isRegisterInterestEnabled();
-		verify(this.mockRegion, never()).unregisterInterest(any());
-	}
+  @Test
+  @SuppressWarnings("unchecked")
+  public void beforeCreateHandlesNewSessionPublishesSessionCreatedEvent() {
 
-	@Test
-	public void constructSessionEventHandlerCacheListenerAdapter() {
+    SessionEventHandlerCacheWriterAdapter sessionEventHandler =
+        spy(this.sessionRepository.newSessionEventHandlerCacheWriterAdapter(new BoundedRingHashSet(1)));
 
-		AbstractGemFireOperationsSessionRepository mockSessionRepository =
-			mock(AbstractGemFireOperationsSessionRepository.class);
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHanlder =
-			new SessionEventHandlerCacheListenerAdapter(mockSessionRepository);
+    when(mockEntryEvent.getKey()).thenReturn("1");
+    when(mockEntryEvent.getNewValue()).thenReturn(this.mockSession);
+    when(this.mockSession.getId()).thenReturn("1");
+    doNothing().when(this.sessionRepository).publishEvent(any(ApplicationEvent.class));
 
-		assertThat(sessionEventHanlder).isNotNull();
-		assertThat(sessionEventHanlder.getSessionRepository()).isSameAs(mockSessionRepository);
-	}
+    doReturn(true).when(sessionEventHandler).isNotLocalLoadEvent(any(EntryEvent.class));
 
-	@Test(expected = IllegalArgumentException.class)
-	public void constructSessionEventHandlerCacheListenerAdapterWithNull() {
+    sessionEventHandler.beforeCreate(mockEntryEvent);
 
-		try {
-			new SessionEventHandlerCacheListenerAdapter(null);
-		}
-		catch (IllegalArgumentException expected) {
+    verify(mockEntryEvent, times(2)).getKey();
+    verify(mockEntryEvent, times(3)).getNewValue();
+    verify(sessionEventHandler, times(2)).getSessionRepository();
+    verify(this.sessionRepository, times(1)).publishEvent(isA(SessionCreatedEvent.class));
+  }
 
-			assertThat(expected).hasMessage("SessionRepository is required");
-			assertThat(expected).hasNoCause();
+  @Test
+  @SuppressWarnings("unchecked")
+  public void beforeCreateHandlesKnownSessionWillNotPublishSessionCreatedEvent() {
+    SessionEventHandlerCacheWriterAdapter sessionEventHandler =
+        spy(this.sessionRepository.newSessionEventHandlerCacheWriterAdapter(new BoundedRingHashSet(1)));
 
-			throw expected;
-		}
-	}
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-	@Test
-	public void newSessionEventHandlerCacheListenerAdapterUsingSessionRepository() {
+    when(mockEntryEvent.getKey()).thenReturn("1");
+    when(mockEntryEvent.getNewValue()).thenReturn(this.mockSession);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    doReturn(true).when(sessionEventHandler).isNotLocalLoadEvent(mockEntryEvent);
+    BoundedRingHashSet cachedSessionIdsMock = mock(BoundedRingHashSet.class);
+    doReturn(cachedSessionIdsMock).when(sessionEventHandler).getCachedSessionIds();
+    doReturn(true).when(cachedSessionIdsMock).contains(anyInt());
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.getSessionRepository()).isSameAs(this.sessionRepository);
-	}
+    sessionEventHandler.beforeCreate(mockEntryEvent);
 
-	@Test
-	public void afterCreateIsNullSafe() {
+    verify(mockEntryEvent, times(1)).getKey();
+    verify(mockEntryEvent, times(2)).getNewValue();
+    verifyNoInteractions(this.mockSession);
+    verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
+  }
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+  @Test
+  @SuppressWarnings("unchecked")
+  public void beforeCreateHandlesLocalLoadCreateDoesNotPublishSessionCreatedEvent() {
 
-		sessionEventHandler.afterCreate(null);
+    SessionEventHandlerCacheWriterAdapter sessionEventHandler =
+        spy(this.sessionRepository.newSessionEventHandlerCacheWriterAdapter(new BoundedRingHashSet(1)));
 
-		verify(sessionEventHandler, never()).remember(any());
-		verify(sessionEventHandler, never()).getSessionRepository();
-		verify(sessionEventHandler, never()).newSessionCreatedEvent(any(Session.class));
-		verify(sessionEventHandler, never()).toSession(any(), any());
-		verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
-	}
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    when(mockEntryEvent.getNewValue()).thenReturn(mock(Session.class));
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void afterCreateHandlesNewSessionPublishesSessionCreatedEvent() {
+    when(mockEntryEvent.getOperation()).thenReturn(Operation.LOCAL_LOAD_CREATE);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+    sessionEventHandler.beforeCreate(mockEntryEvent);
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    verify(mockEntryEvent, atLeastOnce()).getOperation();
+    verify(this.sessionRepository, never()).publishEvent(any());
+  }
 
-		when(mockEntryEvent.getKey()).thenReturn("1");
-		when(mockEntryEvent.getNewValue()).thenReturn(this.mockSession);
-		when(this.mockSession.getId()).thenReturn("1");
-		doNothing().when(this.sessionRepository).publishEvent(any(ApplicationEvent.class));
+  @Test
+  @SuppressWarnings("unchecked")
+  public void beforeCreateHandlesNullSessionWillNotPublishSessionCreatedEvent() {
 
-		sessionEventHandler.afterCreate(mockEntryEvent);
+    SessionEventHandlerCacheWriterAdapter sessionEventHandler =
+        spy(this.sessionRepository.newSessionEventHandlerCacheWriterAdapter(new BoundedRingHashSet(1)));
 
-		assertThat(sessionEventHandler.isRemembered("1")).isTrue();
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    Session mockSession = mock(Session.class);
 
-		verify(mockEntryEvent, times(2)).getKey();
-		verify(mockEntryEvent, times(2)).getNewValue();
-		verify(sessionEventHandler, times(1)).remember(eq("1"));
-		verify(sessionEventHandler, times(2)).getSessionRepository();
-		verify(sessionEventHandler, times(1)).newSessionCreatedEvent(eq(this.mockSession));
-		verify(sessionEventHandler, times(1)).toSession(eq(this.mockSession), eq("1"));
-		verify(this.mockSession, times(1)).getId();
-		verify(this.sessionRepository, times(1)).publishEvent(isA(SessionCreatedEvent.class));
-	}
+    when(((Session) mockEntryEvent.getNewValue())).thenReturn(null);
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void afterCreateHandlesKnownSessionWillNotPublishSessionCreatedEvent() {
+    sessionEventHandler.beforeCreate(mockEntryEvent);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    verify(mockEntryEvent, never()).getKey();
+    verify(mockEntryEvent, times(1)).getNewValue();
+    verify(sessionEventHandler, never()).getSessionRepository();
+    verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
+  }
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+  @Test
+  public void afterDeleteForgetsSessionIdPublishesSessionDeletedEventForSession() {
 
-		when(mockEntryEvent.getKey()).thenReturn("1");
-		when(mockEntryEvent.getNewValue()).thenReturn(this.mockSession);
+    SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler(new BoundedRingHashSet(1));
 
-		assertThat(sessionEventHandler.remember("1")).isTrue();
-		assertThat(sessionEventHandler.isRemembered("1")).isTrue();
+    when(this.mockSession.getId()).thenReturn("1");
 
-		sessionEventHandler = spy(sessionEventHandler);
-		sessionEventHandler.afterCreate(mockEntryEvent);
+    sessionEventHandler = spy(sessionEventHandler);
+    sessionEventHandler.afterDelete("1", this.mockSession);
 
-		assertThat(sessionEventHandler.isRemembered("1")).isTrue();
+    verify(sessionEventHandler, times(2)).getSessionRepository();
+    verify(this.sessionRepository, times(1)).publishEvent(isA(SessionDeletedEvent.class));
+  }
 
-		verify(mockEntryEvent, times(1)).getKey();
-		verify(mockEntryEvent, times(1)).getNewValue();
-		verify(sessionEventHandler, times(1)).remember(eq("1"));
-		verify(sessionEventHandler, never()).getSessionRepository();
-		verify(sessionEventHandler, never()).newSessionCreatedEvent(any(Session.class));
-		verify(sessionEventHandler, never()).toSession(any(), any());
-		verifyNoInteractions(this.mockSession);
-		verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
-	}
+  @Test
+  public void afterDeleteForgetsSessionIdPublishesSessionDeletedEventForSessionId() {
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void afterCreateHandlesLocalLoadCreateDoesNotPublishSessionCreatedEvent() {
+    SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler(new BoundedRingHashSet(1));
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    sessionEventHandler = spy(sessionEventHandler);
+    sessionEventHandler.afterDelete("1", null);
 
-		when(mockEntryEvent.getOperation()).thenReturn(Operation.LOCAL_LOAD_CREATE);
 
-		sessionEventHandler.afterCreate(mockEntryEvent);
+    verify(sessionEventHandler, times(2)).getSessionRepository();
+    verify(this.sessionRepository, times(1)).publishEvent(isA(SessionDeletedEvent.class));
+  }
 
-		verify(mockEntryEvent, atLeastOnce()).getOperation();
-		verify(this.sessionRepository, never()).publishEvent(any());
-	}
+  @Test(expected = IllegalStateException.class)
+  public void afterDeleteHandlesNullSessionAndNullSessionIdThrowsIllegalStateException() {
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void afterCreateHandlesNullSessionWillNotPublishSessionCreatedEvent() {
+    SessionEventHandlerCacheListenerAdapter sessionEventHandler =
+        spy(this.sessionRepository.newSessionEventHandler(new BoundedRingHashSet(1)));
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+    try {
+      sessionEventHandler.afterDelete(null, null);
+    } catch (IllegalStateException expected) {
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+      assertThat(expected)
+          .hasMessage("The Session or the Session ID [null] must be known to trigger a Session event");
 
-		when(mockEntryEvent.getNewValue()).thenReturn(null);
+      assertThat(expected).hasNoCause();
 
-		sessionEventHandler.afterCreate(mockEntryEvent);
+      throw expected;
+    } finally {
+      verify(sessionEventHandler, never()).getSessionRepository();
+      verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
+    }
+  }
 
-		verify(mockEntryEvent, never()).getKey();
-		verify(mockEntryEvent, times(1)).getNewValue();
-		verify(sessionEventHandler, never()).remember(eq("1"));
-		verify(sessionEventHandler, never()).getSessionRepository();
-		verify(sessionEventHandler, never()).newSessionCreatedEvent(any(Session.class));
-		verify(sessionEventHandler, never()).toSession(any(), any());
-		verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
-	}
+  @Test
+  public void afterDestroyIsNullSafe() {
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void afterCreateHandlesTombstoneWillNotPublishSessionCreatedEvent() {
+    SessionEventHandlerCacheListenerAdapter sessionEventHandler =
+        spy(this.sessionRepository.newSessionEventHandler(new BoundedRingHashSet(1)));
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+    sessionEventHandler.afterDestroy(null);
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    verify(sessionEventHandler, never()).getSessionRepository();
+    verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
+  }
 
-		when(mockEntryEvent.getNewValue()).thenReturn(new Tombstone());
+  @Test
+  @SuppressWarnings("unchecked")
+  public void afterDestroyHandlesKnownSessionPublishesSessionDestroyedEvent() {
 
-		sessionEventHandler.afterCreate(mockEntryEvent);
+    SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler(new BoundedRingHashSet(1));
 
-		verify(mockEntryEvent, never()).getKey();
-		verify(mockEntryEvent, times(1)).getNewValue();
-		verify(sessionEventHandler, never()).remember(eq("1"));
-		verify(sessionEventHandler, never()).getSessionRepository();
-		verify(sessionEventHandler, never()).newSessionCreatedEvent(any(Session.class));
-		verify(sessionEventHandler, never()).toSession(any(), any());
-		verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
-	}
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-	@Test
-	public void afterDeleteForgetsSessionIdPublishesSessionDeletedEventForSession() {
+    when(mockEntryEvent.getKey()).thenReturn("1");
+    when(mockEntryEvent.getOldValue()).thenReturn(this.mockSession);
+    when(this.mockSession.getId()).thenReturn("1");
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
 
-		assertThat(sessionEventHandler.remember("1")).isTrue();
-		assertThat(sessionEventHandler.isRemembered("1")).isTrue();
+    when(this.mockSession.getId()).thenReturn("1");
 
-		when(this.mockSession.getId()).thenReturn("1");
+    sessionEventHandler = spy(sessionEventHandler);
+    sessionEventHandler.afterDestroy(mockEntryEvent);
 
-		sessionEventHandler = spy(sessionEventHandler);
-		sessionEventHandler.afterDelete("1", this.mockSession);
+    verify(mockEntryEvent, times(1)).getKey();
+    verify(mockEntryEvent, times(1)).getOldValue();
+    verify(this.mockSession, times(1)).getId();
+    verify(sessionEventHandler, times(2)).getSessionRepository();
+    verify(this.sessionRepository, times(1)).publishEvent(isA(SessionDestroyedEvent.class));
+  }
 
-		assertThat(sessionEventHandler.isRemembered("1")).isFalse();
+  @Test
+  @SuppressWarnings("unchecked")
+  public void afterDestroyHandlesNullSessionPublishesSessionDestroyedEventWithSessionId() {
 
-		verify(sessionEventHandler, times(1)).forget(eq("1"));
-		verify(sessionEventHandler, times(2)).getSessionRepository();
-		verify(sessionEventHandler, times(1)).newSessionDeletedEvent(eq(this.mockSession));
-		verify(sessionEventHandler, times(1)).toSession(eq(this.mockSession), eq("1"));
-		verify(this.sessionRepository, times(1)).publishEvent(isA(SessionDeletedEvent.class));
-	}
+    SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler(new BoundedRingHashSet(1));
 
-	@Test
-	public void afterDeleteForgetsSessionIdPublishesSessionDeletedEventForSessionId() {
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    when(mockEntryEvent.getKey()).thenReturn("1");
+    when(mockEntryEvent.getOldValue()).thenReturn(null);
 
-		assertThat(sessionEventHandler.remember("1")).isTrue();
-		assertThat(sessionEventHandler.isRemembered("1")).isTrue();
+    sessionEventHandler = spy(sessionEventHandler);
+    sessionEventHandler.afterDestroy(mockEntryEvent);
 
-		sessionEventHandler = spy(sessionEventHandler);
-		sessionEventHandler.afterDelete("1", null);
+    verify(mockEntryEvent, times(1)).getKey();
+    verify(mockEntryEvent, times(1)).getOldValue();
+    verify(sessionEventHandler, times(2)).getSessionRepository();
+    verify(this.sessionRepository, times(1)).publishEvent(isA(SessionDestroyedEvent.class));
+  }
 
-		assertThat(sessionEventHandler.isRemembered("1")).isFalse();
+  @Test
+  @SuppressWarnings("unchecked")
+  public void afterDestroyHandlesTombstonePublishesSessionDestroyedEventWithSessionId() {
 
-		verify(sessionEventHandler, times(1)).forget(eq("1"));
-		verify(sessionEventHandler, times(2)).getSessionRepository();
-		verify(sessionEventHandler, times(1)).newSessionDeletedEvent(isA(SessionIdHolder.class));
-		verify(sessionEventHandler, times(1)).toSession(isNull(), eq("1"));
-		verify(this.sessionRepository, times(1)).publishEvent(isA(SessionDeletedEvent.class));
-	}
+    SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler(new BoundedRingHashSet(1));
 
-	@Test(expected = IllegalStateException.class)
-	public void afterDeleteHandlesNullSessionAndNullSessionIdThrowsIllegalStateException() {
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+    when(mockEntryEvent.getKey()).thenReturn("1");
+    when(mockEntryEvent.getOldValue()).thenReturn(new Tombstone());
 
-		try {
-			sessionEventHandler.afterDelete(null, null);
-		}
-		catch (IllegalStateException expected) {
+    sessionEventHandler = spy(sessionEventHandler);
+    sessionEventHandler.afterDestroy(mockEntryEvent);
 
-			assertThat(expected)
-				.hasMessage("The Session or the Session ID [null] must be known to trigger a Session event");
+    verify(mockEntryEvent, times(1)).getKey();
+    verify(mockEntryEvent, times(1)).getOldValue();
+    verify(sessionEventHandler, times(2)).getSessionRepository();
+    verify(this.sessionRepository, times(1)).publishEvent(isA(SessionDestroyedEvent.class));
+  }
 
-			assertThat(expected).hasNoCause();
+  @Test
+  public void afterInvalidateIsNullSafe() {
 
-			throw expected;
-		}
-		finally {
-			//verify(sessionEventHandler, times(1)).forget(isNull());
-			verify(sessionEventHandler, times(1)).getSessionRepository();
-			verify(sessionEventHandler, never()).newSessionDeletedEvent(any(Session.class));
-			verify(sessionEventHandler, times(1)).toSession(isNull(), isNull());
-			verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
-		}
-	}
+    SessionEventHandlerCacheListenerAdapter sessionEventHandler =
+        spy(this.sessionRepository.newSessionEventHandler(new BoundedRingHashSet(1)));
 
-	@Test
-	public void afterDestroyIsNullSafe() {
+    sessionEventHandler.afterInvalidate(null);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+    verify(sessionEventHandler, never()).getSessionRepository();
+    verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
+  }
 
-		sessionEventHandler.afterDestroy(null);
+  @Test
+  @SuppressWarnings("unchecked")
+  public void afterInvalidateHandlesKnownSessionPublishesSessionExpiredEvent() {
 
-		verify(sessionEventHandler, never()).forget(any());
-		verify(sessionEventHandler, never()).getSessionRepository();
-		verify(sessionEventHandler, never()).newSessionDestroyedEvent(any(Session.class));
-		verify(sessionEventHandler, never()).toSession(any(), any());
-		verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
-	}
+    SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler(new BoundedRingHashSet(1));
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void afterDestroyHandlesKnownSessionPublishesSessionDestroyedEvent() {
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    when(mockEntryEvent.getKey()).thenReturn("1");
+    when(mockEntryEvent.getOldValue()).thenReturn(this.mockSession);
+    when(this.mockSession.getId()).thenReturn("1");
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    when(this.mockSession.getId()).thenReturn("1");
 
-		when(mockEntryEvent.getKey()).thenReturn("1");
-		when(mockEntryEvent.getOldValue()).thenReturn(this.mockSession);
-		when(this.mockSession.getId()).thenReturn("1");
+    sessionEventHandler = spy(sessionEventHandler);
+    sessionEventHandler.afterInvalidate(mockEntryEvent);
 
-		assertThat(sessionEventHandler.remember("1")).isTrue();
-		assertThat(sessionEventHandler.isRemembered("1")).isTrue();
+    verify(mockEntryEvent, times(1)).getKey();
+    verify(mockEntryEvent, times(1)).getOldValue();
+    verify(this.mockSession, times(1)).getId();
+    verify(sessionEventHandler, times(2)).getSessionRepository();
+    verify(this.sessionRepository, times(1)).publishEvent(isA(SessionExpiredEvent.class));
+  }
 
-		when(this.mockSession.getId()).thenReturn("1");
+  @Test
+  @SuppressWarnings("unchecked")
+  public void afterInvalidateHandlesNullSessionPublishesSessionExpiredEventUsingSessionId() {
 
-		sessionEventHandler = spy(sessionEventHandler);
-		sessionEventHandler.afterDestroy(mockEntryEvent);
+    SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler(new BoundedRingHashSet(1));
 
-		assertThat(sessionEventHandler.isRemembered("1")).isFalse();
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		verify(mockEntryEvent, times(2)).getKey();
-		verify(mockEntryEvent, times(1)).getOldValue();
-		verify(this.mockSession, times(1)).getId();
-		verify(sessionEventHandler, times(1)).forget(eq("1"));
-		verify(sessionEventHandler, times(2)).getSessionRepository();
-		verify(sessionEventHandler, times(1)).newSessionDestroyedEvent(eq(this.mockSession));
-		verify(sessionEventHandler, times(1)).toSession(eq(this.mockSession), eq("1"));
-		verify(this.sessionRepository, times(1)).publishEvent(isA(SessionDestroyedEvent.class));
-	}
+    when(mockEntryEvent.getKey()).thenReturn("1");
+    when(mockEntryEvent.getOldValue()).thenReturn(null);
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void afterDestroyHandlesNullSessionPublishesSessionDestroyedEventWithSessionId() {
+    sessionEventHandler = spy(sessionEventHandler);
+    sessionEventHandler.afterInvalidate(mockEntryEvent);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    verify(mockEntryEvent, times(1)).getKey();
+    verify(mockEntryEvent, times(1)).getOldValue();
+    verify(sessionEventHandler, times(2)).getSessionRepository();
+    verify(this.sessionRepository, times(1)).publishEvent(isA(SessionExpiredEvent.class));
+  }
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+  @Test
+  @SuppressWarnings("unchecked")
+  public void afterInvalidateHandlesTombstonePublishesSessionExpiredEventUsingSessionId() {
 
-		when(mockEntryEvent.getKey()).thenReturn("1");
-		when(mockEntryEvent.getOldValue()).thenReturn(null);
+    SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler(new BoundedRingHashSet(1));
 
-		assertThat(sessionEventHandler.remember("1")).isTrue();
-		assertThat(sessionEventHandler.isRemembered("1")).isTrue();
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		sessionEventHandler = spy(sessionEventHandler);
-		sessionEventHandler.afterDestroy(mockEntryEvent);
+    when(mockEntryEvent.getKey()).thenReturn("1");
+    when(mockEntryEvent.getOldValue()).thenReturn(new Tombstone());
 
-		assertThat(sessionEventHandler.isRemembered("1")).isFalse();
+    sessionEventHandler = spy(sessionEventHandler);
+    sessionEventHandler.afterInvalidate(mockEntryEvent);
 
-		verify(mockEntryEvent, times(2)).getKey();
-		verify(mockEntryEvent, times(1)).getOldValue();
-		verify(sessionEventHandler, times(1)).forget(eq("1"));
-		verify(sessionEventHandler, times(2)).getSessionRepository();
-		verify(sessionEventHandler, times(1)).newSessionDestroyedEvent(isA(SessionIdHolder.class));
-		verify(sessionEventHandler, times(1)).toSession(isNull(), eq("1"));
-		verify(this.sessionRepository, times(1)).publishEvent(isA(SessionDestroyedEvent.class));
-	}
+    verify(mockEntryEvent, times(1)).getKey();
+    verify(mockEntryEvent, times(1)).getOldValue();
+    verify(sessionEventHandler, times(2)).getSessionRepository();
+    verify(this.sessionRepository, times(1)).publishEvent(isA(SessionExpiredEvent.class));
+  }
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void afterDestroyHandlesTombstonePublishesSessionDestroyedEventWithSessionId() {
+  @Test
+  @SuppressWarnings("unchecked")
+  public void afterUpdateHandlesSessionPublishesSessionChangedEvent() {
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    SessionEventHandlerCacheListenerAdapter sessionEventHandler =
+        spy(this.sessionRepository.newSessionEventHandler(new BoundedRingHashSet(1)));
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		when(mockEntryEvent.getKey()).thenReturn("1");
-		when(mockEntryEvent.getOldValue()).thenReturn(new Tombstone());
+    when(mockEntryEvent.getKey()).thenReturn("1");
+    when(mockEntryEvent.getNewValue()).thenReturn(this.mockSession);
 
-		assertThat(sessionEventHandler.remember("1")).isTrue();
-		assertThat(sessionEventHandler.isRemembered("1")).isTrue();
+    sessionEventHandler.afterUpdate(mockEntryEvent);
 
-		sessionEventHandler = spy(sessionEventHandler);
-		sessionEventHandler.afterDestroy(mockEntryEvent);
+    verify(mockEntryEvent, times(1)).getKey();
+    verify(mockEntryEvent, times(1)).getNewValue();
+    verify(mockEntryEvent, never()).getOldValue();
+    verify(this.sessionRepository, times(1)).publishEvent(isA(SessionChangedEvent.class));
+  }
 
-		assertThat(sessionEventHandler.isRemembered("1")).isFalse();
+  @Test
+  public void afterUpdateHandlesNullEntryEventDoesNotPublishSessionChangedEvent() {
 
-		verify(mockEntryEvent, times(2)).getKey();
-		verify(mockEntryEvent, times(1)).getOldValue();
-		verify(sessionEventHandler, times(1)).forget(eq("1"));
-		verify(sessionEventHandler, times(2)).getSessionRepository();
-		verify(sessionEventHandler, times(1)).newSessionDestroyedEvent(isA(SessionIdHolder.class));
-		verify(sessionEventHandler, times(1)).toSession(isA(Tombstone.class), eq("1"));
-		verify(this.sessionRepository, times(1)).publishEvent(isA(SessionDestroyedEvent.class));
-	}
+    SessionEventHandlerCacheListenerAdapter sessionEventHandler =
+        spy(this.sessionRepository.newSessionEventHandler(new BoundedRingHashSet(1)));
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void afterDestroyHandlesUnknownSessionWillNotPublishSessionDestroyedEvent() {
+    sessionEventHandler.afterUpdate(null);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+    verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
+  }
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		when(mockEntryEvent.getKey()).thenReturn("1");
+  private <T extends AbstractSessionEvent> void testNewSessionEventIsCorrect(
+      Function<Session, T> sessionEventFactory, Class<T> sessionEventType) {
 
-		sessionEventHandler.afterDestroy(mockEntryEvent);
+    when(this.mockSession.getId()).thenReturn("1");
 
-		verify(mockEntryEvent, times(1)).getKey();
-		verify(mockEntryEvent, never()).getOldValue();
-		verify(sessionEventHandler, times(1)).forget(eq("1"));
-		verify(sessionEventHandler, never()).getSessionRepository();
-		verify(sessionEventHandler, never()).newSessionDestroyedEvent(any(Session.class));
-		verify(sessionEventHandler, never()).toSession(any(), any());
-		verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
-	}
+    AbstractSessionEvent event = sessionEventFactory.apply(this.mockSession);
 
-	@Test
-	public void afterInvalidateIsNullSafe() {
+    assertThat(event).isInstanceOf(sessionEventType);
+    assertThat(event.getSource()).isEqualTo(this.sessionRepository);
+    assertThat(event.<Session>getSession()).isEqualTo(this.mockSession);
+    assertThat(event.getSessionId()).isEqualTo("1");
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+    verify(this.mockSession, times(1)).getId();
+  }
 
-		sessionEventHandler.afterInvalidate(null);
+  @Test
+  public void isLocalLoadEventWithNullEvent() {
+    assertThat(SessionUtils.isLocalLoadEvent(null)).isFalse();
+    assertThat(SessionUtils.isNotLocalLoadEvent(null)).isTrue();
+  }
 
-		verify(sessionEventHandler, never()).forget(any());
-		verify(sessionEventHandler, never()).getSessionRepository();
-		verify(sessionEventHandler, never()).newSessionExpiredEvent(any(Session.class));
-		verify(sessionEventHandler, never()).toSession(any(), any());
-		verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
-	}
+  @Test
+  public void isLocalLoadEventWithNullOperation() {
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void afterInvalidateHandlesKnownSessionPublishesSessionExpiredEvent() {
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    when(mockEntryEvent.getOperation()).thenReturn(null);
 
-		when(mockEntryEvent.getKey()).thenReturn("1");
-		when(mockEntryEvent.getOldValue()).thenReturn(this.mockSession);
-		when(this.mockSession.getId()).thenReturn("1");
+    assertThat(SessionUtils.isLocalLoadEvent(mockEntryEvent)).isFalse();
+    assertThat(SessionUtils.isNotLocalLoadEvent(mockEntryEvent)).isTrue();
 
-		assertThat(sessionEventHandler.remember("1")).isTrue();
-		assertThat(sessionEventHandler.isRemembered("1")).isTrue();
+    verify(mockEntryEvent, times(2)).getOperation();
+  }
 
-		when(this.mockSession.getId()).thenReturn("1");
+  @Test
+  public void isLocalLoadEventWithFunctionExecutionOperation() {
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		sessionEventHandler = spy(sessionEventHandler);
-		sessionEventHandler.afterInvalidate(mockEntryEvent);
+    when(mockEntryEvent.getOperation()).thenReturn(Operation.FUNCTION_EXECUTION);
 
-		assertThat(sessionEventHandler.isRemembered("1")).isFalse();
+    assertThat(SessionUtils.isLocalLoadEvent(mockEntryEvent)).isFalse();
+    assertThat(SessionUtils.isNotLocalLoadEvent(mockEntryEvent)).isTrue();
 
-		verify(mockEntryEvent, times(2)).getKey();
-		verify(mockEntryEvent, times(1)).getOldValue();
-		verify(this.mockSession, times(1)).getId();
-		verify(sessionEventHandler, times(1)).forget(eq("1"));
-		verify(sessionEventHandler, times(2)).getSessionRepository();
-		verify(sessionEventHandler, times(1)).newSessionExpiredEvent(eq(this.mockSession));
-		verify(sessionEventHandler, times(1)).toSession(eq(this.mockSession), eq("1"));
-		verify(this.sessionRepository, times(1)).publishEvent(isA(SessionExpiredEvent.class));
-	}
+    verify(mockEntryEvent, times(4)).getOperation();
+  }
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void afterInvalidateHandlesNullSessionPublishesSessionExpiredEventUsingSessionId() {
+  @Test
+  public void isLocalLoadEventWithLocalLoadCreateOperation() {
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    when(mockEntryEvent.getOperation()).thenReturn(Operation.LOCAL_LOAD_CREATE);
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    assertThat(SessionUtils.isLocalLoadEvent(mockEntryEvent)).isTrue();
+    assertThat(SessionUtils.isNotLocalLoadEvent(mockEntryEvent)).isFalse();
 
-		when(mockEntryEvent.getKey()).thenReturn("1");
-		when(mockEntryEvent.getOldValue()).thenReturn(null);
+    verify(mockEntryEvent, times(4)).getOperation();
+  }
 
-		assertThat(sessionEventHandler.remember("1")).isTrue();
-		assertThat(sessionEventHandler.isRemembered("1")).isTrue();
+  @Test
+  public void isLocalLoadEventWithLocalLoadUpdateOperation() {
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		sessionEventHandler = spy(sessionEventHandler);
-		sessionEventHandler.afterInvalidate(mockEntryEvent);
+    when(mockEntryEvent.getOperation()).thenReturn(Operation.LOCAL_LOAD_UPDATE);
 
-		assertThat(sessionEventHandler.isRemembered("1")).isFalse();
+    assertThat(SessionUtils.isLocalLoadEvent(mockEntryEvent)).isTrue();
+    assertThat(SessionUtils.isNotLocalLoadEvent(mockEntryEvent)).isFalse();
 
-		verify(mockEntryEvent, times(2)).getKey();
-		verify(mockEntryEvent, times(1)).getOldValue();
-		verify(sessionEventHandler, times(1)).forget(eq("1"));
-		verify(sessionEventHandler, times(2)).getSessionRepository();
-		verify(sessionEventHandler, times(1)).newSessionExpiredEvent(isA(SessionIdHolder.class));
-		verify(sessionEventHandler, times(1)).toSession(isNull(), eq("1"));
-		verify(this.sessionRepository, times(1)).publishEvent(isA(SessionExpiredEvent.class));
-	}
+    verify(mockEntryEvent, times(4)).getOperation();
+  }
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void afterInvalidateHandlesTombstonePublishesSessionExpiredEventUsingSessionId() {
+  @Test
+  public void isSessionWithEntryEventContainingNull() {
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    when(mockEntryEvent.getNewValue()).thenReturn(null);
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    assertThat(SessionUtils.isSession(mockEntryEvent)).isFalse();
+  }
 
-		when(mockEntryEvent.getKey()).thenReturn("1");
-		when(mockEntryEvent.getOldValue()).thenReturn(new Tombstone());
+  @Test
+  public void isSessionWithEntryEventContainingSession() {
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		assertThat(sessionEventHandler.remember("1")).isTrue();
-		assertThat(sessionEventHandler.isRemembered("1")).isTrue();
+    when(mockEntryEvent.getNewValue()).thenReturn(this.mockSession);
+    assertThat(SessionUtils.isSession(mockEntryEvent)).isTrue();
+  }
 
-		sessionEventHandler = spy(sessionEventHandler);
-		sessionEventHandler.afterInvalidate(mockEntryEvent);
+  @Test
+  public void isSessionWithEntryEventContainingTombstone() {
 
-		assertThat(sessionEventHandler.isRemembered("1")).isFalse();
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		verify(mockEntryEvent, times(2)).getKey();
-		verify(mockEntryEvent, times(1)).getOldValue();
-		verify(sessionEventHandler, times(1)).forget(eq("1"));
-		verify(sessionEventHandler, times(2)).getSessionRepository();
-		verify(sessionEventHandler, times(1)).newSessionExpiredEvent(isA(SessionIdHolder.class));
-		verify(sessionEventHandler, times(1)).toSession(isA(Tombstone.class), eq("1"));
-		verify(this.sessionRepository, times(1)).publishEvent(isA(SessionExpiredEvent.class));
-	}
+    when(mockEntryEvent.getNewValue()).thenReturn(new Tombstone());
+    assertThat(SessionUtils.isSession(mockEntryEvent)).isFalse();
+  }
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void afterInvalidateHandlesUnknownSessionWillNotPublishSessionExpiredEvent() {
+  @Test
+  public void isSessionWithNullEntryEvent() {
+    assertThat(SessionUtils.isSession(null)).isFalse();
+  }
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+  @Test
+  public void isSessionWithNull() {
+    assertThat(SessionUtils.isSession((Object) null)).isFalse();
+  }
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+  @Test
+  public void isSessionWithSession() {
+    assertThat(SessionUtils.isSession(this.mockSession)).isTrue();
+  }
 
-		when(mockEntryEvent.getKey()).thenReturn("1");
+  @Test
+  public void isSessionWithTombstone() {
+    assertThat(SessionUtils.isSession(new Tombstone())).isFalse();
+  }
 
-		sessionEventHandler.afterInvalidate(mockEntryEvent);
+  @Test
+  public void toSessionWithSessionAndSessionId() {
+    assertThat(SessionUtils.toSession(this.mockSession, "12345")).isSameAs(this.mockSession);
+  }
 
-		verify(mockEntryEvent, times(1)).getKey();
-		verify(mockEntryEvent, never()).getOldValue();
-		verifyNoInteractions(this.mockSession);
-		verify(sessionEventHandler, times(1)).forget(eq("1"));
-		verify(sessionEventHandler, never()).getSessionRepository();
-		verify(sessionEventHandler, never()).newSessionExpiredEvent(any(Session.class));
-		verify(sessionEventHandler, never()).toSession(any(), any());
-		verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
-	}
+  private void testToSessionWithNullSessionAndInvalidSessionId(String sessionId) {
+    try {
+      SessionUtils.toSession(null, sessionId);
+    } catch (IllegalStateException expected) {
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void afterUpdateHandlesSessionPublishesSessionChangedEvent() {
+      assertThat(expected)
+          .hasMessage("The Session or the Session ID [%s] must be known to trigger a Session event",
+              sessionId);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+      assertThat(expected).hasNoCause();
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+      throw expected;
+    }
+  }
 
-		when(mockEntryEvent.getKey()).thenReturn("1");
-		when(mockEntryEvent.getNewValue()).thenReturn(this.mockSession);
+  @Test(expected = IllegalStateException.class)
+  public void toSessionWithNullSessionAndEmptySessionId() {
+    testToSessionWithNullSessionAndInvalidSessionId("");
+  }
 
-		sessionEventHandler.afterUpdate(mockEntryEvent);
+  @Test(expected = IllegalStateException.class)
+  public void toSessionWithNullSessionAndNullSessionId() {
+    testToSessionWithNullSessionAndInvalidSessionId(null);
+  }
 
-		verify(mockEntryEvent, times(1)).getKey();
-		verify(mockEntryEvent, times(1)).getNewValue();
-		verify(mockEntryEvent, never()).getOldValue();
-		verify(sessionEventHandler, times(1)).newSessionChangedEvent(eq(this.mockSession));
-		verify(sessionEventHandler, times(1)).toSession(eq(this.mockSession), eq("1"));
-		verify(this.sessionRepository, times(1)).publishEvent(isA(SessionChangedEvent.class));
-	}
+  @Test(expected = IllegalStateException.class)
+  public void toSessionWithNullSessionAndUnspecifiedSessionId() {
+    testToSessionWithNullSessionAndInvalidSessionId(null);
+  }
 
-	@Test
-	public void afterUpdateHandlesNullEntryEventDoesNotPublishSessionChangedEvent() {
+  @Test
+  public void constructSessionIdInterestRegisteringCacheListener() {
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+    SessionIdInterestRegisteringCacheListener listener =
+        new SessionIdInterestRegisteringCacheListener(this.sessionRepository);
 
-		sessionEventHandler.afterUpdate(null);
+    assertThat(listener).isNotNull();
+    assertThat(listener.getSessionRepository()).isSameAs(this.sessionRepository);
+  }
 
-		verify(sessionEventHandler, never()).newSessionChangedEvent(any(Session.class));
-		verify(sessionEventHandler, never()).toSession(any(), any());
-		verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
-	}
+  @Test(expected = IllegalArgumentException.class)
+  public void constructSessionIdInterestRegisteringCacheListenerWithNull() {
 
-	@Test
-	public void sessionCreateCreateExpireRecreatePublishesSessionEventsCreateExpireCreate() {
+    try {
+      new SessionIdInterestRegisteringCacheListener(null);
+    } catch (IllegalArgumentException expected) {
 
-		ApplicationEventPublisher mockApplicationEventPublisher = mock(ApplicationEventPublisher.class);
+      assertThat(expected).hasMessage("SessionRepository is required");
+      assertThat(expected).hasNoCause();
 
-		AtomicInteger index = new AtomicInteger(0);
+      throw expected;
+    }
+  }
 
-		Class[] expectedSessionEventTypes = {
-			SessionCreatedEvent.class, SessionExpiredEvent.class, SessionCreatedEvent.class
-		};
+  @Test
+  public void constructSessionIdInterestRegisteringCacheListenerUsingSessionRepository() {
 
-		doAnswer(invocation -> {
+    SessionIdInterestRegisteringCacheListener listener = this.sessionRepository.newSessionIdInterestRegistrar();
 
-			ApplicationEvent applicationEvent = invocation.getArgument(0);
+    assertThat(listener).isNotNull();
+    assertThat(listener.getSessionRepository()).isSameAs(this.sessionRepository);
+  }
 
-			assertThat(applicationEvent).isInstanceOf(expectedSessionEventTypes[index.getAndIncrement()]);
+  @Test
+  @SuppressWarnings("unchecked")
+  public void sessionIdInterestRegisteringCacheListerAfterDestroyCallsUnregisterInterest() {
 
-			AbstractSessionEvent sessionEvent = (AbstractSessionEvent) applicationEvent;
+    SessionIdInterestRegisteringCacheListener listener =
+        spy(this.sessionRepository.newSessionIdInterestRegistrar());
 
-			assertThat(sessionEvent.<Session>getSession()).isEqualTo(this.mockSession);
-			assertThat(sessionEvent.getSessionId()).isEqualTo("123456789");
-			assertThat(sessionEvent.getSource()).isEqualTo(this.sessionRepository);
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-			return null;
+    when(mockEntryEvent.getKey()).thenReturn("1");
 
-		}).when(mockApplicationEventPublisher).publishEvent(isA(ApplicationEvent.class));
+    listener.afterDestroy(mockEntryEvent);
 
-		EntryEvent<Object, Session> mockCreateEvent =
-			mockEntryEvent(Operation.CREATE, "123456789", null, this.mockSession);
+    verify(listener, times(1)).getSessionRepository();
+    verify(mockEntryEvent, times(1)).getKey();
+    verify(this.sessionRepository).unregisterInterest(eq("1"));
+  }
 
-		EntryEvent<Object, Session> mockExpireEvent =
-			mockEntryEvent(Operation.INVALIDATE, "123456789", this.mockSession, null);
+  @Test
+  @SuppressWarnings("unchecked")
+  public void sessionIdInterestRegisteringCacheListerAfterInvalidateCallsUnregisterInterest() {
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+    SessionIdInterestRegisteringCacheListener listener =
+        spy(this.sessionRepository.newSessionIdInterestRegistrar());
 
-		doReturn(mockApplicationEventPublisher).when(this.sessionRepository).getApplicationEventPublisher();
-		when(this.mockSession.getId()).thenReturn("123456789");
+    EntryEvent mockEntryEvent = mock(EntryEvent.class);
 
-		sessionEventHandler.afterCreate(mockCreateEvent);
-		sessionEventHandler.afterCreate(mockCreateEvent);
-		sessionEventHandler.afterInvalidate(mockExpireEvent);
-		sessionEventHandler.afterCreate(mockCreateEvent);
+    when(mockEntryEvent.getKey()).thenReturn("1");
 
-		verify(mockCreateEvent, times(5)).getKey();
-		verify(mockCreateEvent, times(5)).getNewValue();
-		verify(mockCreateEvent, never()).getOldValue();
-		verify(mockExpireEvent, times(2)).getKey();
-		verify(mockExpireEvent, never()).getNewValue();
-		verify(mockExpireEvent, times(1)).getOldValue();
-		verify(this.mockSession, times(3)).getId();
-		verify(mockApplicationEventPublisher, times(2))
-			.publishEvent(isA(SessionCreatedEvent.class));
-		verify(mockApplicationEventPublisher, times(1))
-			.publishEvent(isA(SessionExpiredEvent.class));
-	}
+    listener.afterInvalidate(mockEntryEvent);
 
-	private <T extends AbstractSessionEvent> void testNewSessionEventIsCorrect(
-			Function<Session, T> sessionEventFactory, Class<T> sessionEventType) {
+    verify(listener, times(1)).getSessionRepository();
+    verify(mockEntryEvent, times(1)).getKey();
+    verify(this.sessionRepository).unregisterInterest(eq("1"));
+  }
 
-		when(this.mockSession.getId()).thenReturn("1");
+  @Test
+  public void constructDefaultGemFireSession() {
 
-		AbstractSessionEvent event = sessionEventFactory.apply(this.mockSession);
+    Instant testCreationTime = Instant.now();
 
-		assertThat(event).isInstanceOf(sessionEventType);
-		assertThat(event.getSource()).isEqualTo(this.sessionRepository);
-		assertThat(event.<Session>getSession()).isEqualTo(this.mockSession);
-		assertThat(event.getSessionId()).isEqualTo("1");
+    GemFireSession session = new GemFireSession();
 
-		verify(this.mockSession, times(1)).getId();
-	}
+    assertThat(session.getId()).isNotNull();
+    assertThat(session.getCreationTime()).isAfterOrEqualTo(testCreationTime);
+    assertThat(session.hasDelta()).isTrue();
+    assertThat(session.getLastAccessedTime()).isEqualTo(session.getCreationTime());
+    assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
+    assertThat(session.getAttributes()).isNotNull();
+    assertThat(session.getAttributes()).isEmpty();
+  }
 
-	@Test
-	public void newSessionCreatedEventIsCorrect() {
+  @Test
+  public void constructGemFireSessionWithId() {
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+    Instant testCreationTime = Instant.now();
 
-		assertThat(sessionEventHandler).isNotNull();
+    GemFireSession session = new GemFireSession("1");
 
-		testNewSessionEventIsCorrect(sessionEventHandler::newSessionCreatedEvent, SessionCreatedEvent.class);
+    assertThat(session.getId()).isEqualTo("1");
+    assertThat(session.getCreationTime()).isAfterOrEqualTo(testCreationTime);
+    assertThat(session.hasDelta()).isTrue();
+    assertThat(session.getLastAccessedTime()).isEqualTo(session.getCreationTime());
+    assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
+    assertThat(session.getAttributes()).isNotNull();
+    assertThat(session.getAttributes()).isEmpty();
+  }
 
-		verify(sessionEventHandler, times(1)).getSessionRepository();
-	}
+  private void testConstructGemFireSessionWithInvalidId(String id) {
 
-	@Test
-	public void newSessionDeletedEventIsCorrect() {
+    try {
+      new GemFireSession(id);
+    } catch (IllegalArgumentException expected) {
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+      assertThat(expected).hasMessage("ID is required");
+      assertThat(expected).hasNoCause();
 
-		assertThat(sessionEventHandler).isNotNull();
+      throw expected;
+    }
+  }
 
-		testNewSessionEventIsCorrect(sessionEventHandler::newSessionDeletedEvent, SessionDeletedEvent.class);
+  @Test(expected = IllegalArgumentException.class)
+  public void constructGemFireSessionWithEmptyId() {
+    testConstructGemFireSessionWithInvalidId("");
+  }
 
-		verify(sessionEventHandler, times(1)).getSessionRepository();
-	}
+  @Test(expected = IllegalArgumentException.class)
+  public void constructGemFireSessionWithNullId() {
+    testConstructGemFireSessionWithInvalidId(null);
+  }
 
-	@Test
-	public void newSessionDestroyedEventIsCorrect() {
+  @Test(expected = IllegalArgumentException.class)
+  public void constructGemFireSessionWithUnspecifiedId() {
+    testConstructGemFireSessionWithInvalidId("  ");
+  }
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+  @Test
+  public void constructGemFireSessionWithSession() {
 
-		assertThat(sessionEventHandler).isNotNull();
+    Instant expectedCreationTime = Instant.ofEpochMilli(1L);
+    Instant expectedLastAccessTime = Instant.ofEpochMilli(2L);
 
-		testNewSessionEventIsCorrect(sessionEventHandler::newSessionDestroyedEvent, SessionDestroyedEvent.class);
+    Duration expectedMaxInactiveInterval = Duration.ofSeconds(MAX_INACTIVE_INTERVAL_IN_SECONDS);
 
-		verify(sessionEventHandler, times(1)).getSessionRepository();
-	}
+    Session mockSession = mockSession("2", expectedCreationTime.toEpochMilli(),
+        expectedLastAccessTime.toEpochMilli(), MAX_INACTIVE_INTERVAL_IN_SECONDS);
 
-	@Test
-	public void newSessionExpiredEventIsCorrect() {
+    Set<String> expectedAttributedNames = asSet("attributeOne", "attributeTwo");
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler =
-			spy(this.sessionRepository.newSessionEventHandler());
+    when(mockSession.getAttributeNames()).thenReturn(expectedAttributedNames);
+    when(mockSession.getAttribute(eq("attributeOne"))).thenReturn("testOne");
+    when(mockSession.getAttribute(eq("attributeTwo"))).thenReturn("testTwo");
 
-		assertThat(sessionEventHandler).isNotNull();
+    GemFireSession gemfireSession = new GemFireSession(mockSession);
 
-		testNewSessionEventIsCorrect(sessionEventHandler::newSessionExpiredEvent, SessionExpiredEvent.class);
+    assertThat(gemfireSession.getId()).isEqualTo("2");
+    assertThat(gemfireSession.getCreationTime()).isEqualTo(expectedCreationTime);
+    assertThat(gemfireSession.hasDelta()).isTrue();
+    assertThat(gemfireSession.getLastAccessedTime()).isEqualTo(expectedLastAccessTime);
+    assertThat(gemfireSession.getMaxInactiveInterval()).isEqualTo(expectedMaxInactiveInterval);
+    assertThat(gemfireSession.getAttributeNames()).isEqualTo(expectedAttributedNames);
+    assertThat(gemfireSession.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(gemfireSession.<String>getAttribute("attributeTwo")).isEqualTo("testTwo");
 
-		verify(sessionEventHandler, times(1)).getSessionRepository();
-	}
+    verify(mockSession, times(1)).getId();
+    verify(mockSession, times(1)).getCreationTime();
+    verify(mockSession, times(1)).getLastAccessedTime();
+    verify(mockSession, times(1)).getMaxInactiveInterval();
+    verify(mockSession, times(1)).getAttributeNames();
+    verify(mockSession, times(1)).getAttribute(eq("attributeOne"));
+    verify(mockSession, times(1)).getAttribute(eq("attributeTwo"));
+  }
 
-	@Test
-	public void isLocalLoadEventWithNullEvent() {
+  @Test(expected = IllegalArgumentException.class)
+  public void constructGemFireSessionWithNull() {
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    try {
+      new GemFireSession((Session) null);
+    } catch (IllegalArgumentException expected) {
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.isLocalLoadEvent(null)).isFalse();
-		assertThat(sessionEventHandler.isNotLocalLoadEvent(null)).isTrue();
-	}
+      assertThat(expected).hasMessage("Session is required");
+      assertThat(expected).hasNoCause();
 
-	@Test
-	public void isLocalLoadEventWithNullOperation() {
+      throw expected;
+    }
+  }
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+  @Test
+  public void createNewGemFireSession() {
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    assertThat(AbstractGemFireOperationsSessionRepository.isUsingDataSerialization()).isFalse();
 
-		when(mockEntryEvent.getOperation()).thenReturn(null);
+    Instant testCreationTime = Instant.now();
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.isLocalLoadEvent(mockEntryEvent)).isFalse();
-		assertThat(sessionEventHandler.isNotLocalLoadEvent(mockEntryEvent)).isTrue();
+    GemFireSession<?> session = GemFireSession.create();
 
-		verify(mockEntryEvent, times(2)).getOperation();
-	}
+    assertThat(session).isNotNull();
+    assertThat(session).isNotInstanceOf(DeltaCapableGemFireSession.class);
+    assertThat(session.getId()).isNotEmpty();
+    assertThat(session.getCreationTime()).isAfterOrEqualTo(testCreationTime);
+    assertThat(session.getCreationTime()).isBeforeOrEqualTo(Instant.now());
+    assertThat(session.hasDelta()).isTrue();
+    assertThat(session.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    assertThat(session.getLastAccessedTime()).isEqualTo(session.getCreationTime());
+    assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
+    assertThat(session.getAttributes()).isNotNull();
+    assertThat(session.getAttributes()).isEmpty();
+  }
 
-	@Test
-	public void isLocalLoadEventWithFunctionExecutionOperation() {
+  @Test
+  public void createNewDeltaCapableGemFireSession() {
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    this.sessionRepository.setUseDataSerialization(true);
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    assertThat(AbstractGemFireOperationsSessionRepository.isUsingDataSerialization()).isTrue();
 
-		when(mockEntryEvent.getOperation()).thenReturn(Operation.FUNCTION_EXECUTION);
+    Instant testCreationTime = Instant.now();
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.isLocalLoadEvent(mockEntryEvent)).isFalse();
-		assertThat(sessionEventHandler.isNotLocalLoadEvent(mockEntryEvent)).isTrue();
+    GemFireSession<?> session = GemFireSession.create();
 
-		verify(mockEntryEvent, times(4)).getOperation();
-	}
+    assertThat(session).isInstanceOf(DeltaCapableGemFireSession.class);
+    assertThat(session.getId()).isNotEmpty();
+    assertThat(session.getCreationTime()).isAfterOrEqualTo(testCreationTime);
+    assertThat(session.getCreationTime()).isBeforeOrEqualTo(Instant.now());
+    assertThat(session.hasDelta()).isTrue();
+    assertThat(session.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    assertThat(session.getLastAccessedTime()).isEqualTo(session.getCreationTime());
+    assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
+    assertThat(session.getAttributes()).isNotNull();
+    assertThat(session.getAttributes()).isEmpty();
+  }
 
-	@Test
-	public void isLocalLoadEventWithLocalLoadCreateOperation() {
+  @Test(expected = IllegalArgumentException.class)
+  public void copyNullThrowsIllegalArgumentException() {
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    try {
+      GemFireSession.copy(null);
+    } catch (IllegalArgumentException expected) {
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+      assertThat(expected).hasMessage("Session is required");
+      assertThat(expected).hasNoCause();
 
-		when(mockEntryEvent.getOperation()).thenReturn(Operation.LOCAL_LOAD_CREATE);
+      throw expected;
+    }
+  }
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.isLocalLoadEvent(mockEntryEvent)).isTrue();
-		assertThat(sessionEventHandler.isNotLocalLoadEvent(mockEntryEvent)).isFalse();
+  @Test
+  public void copySessionWhenNotUsingDataSerialization() {
 
-		verify(mockEntryEvent, times(4)).getOperation();
-	}
+    assertThat(AbstractGemFireOperationsSessionRepository.isUsingDataSerialization()).isFalse();
 
-	@Test
-	public void isLocalLoadEventWithLocalLoadUpdateOperation() {
+    Session mockSession = mockSession();
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    when(mockSession.getAttributeNames()).thenReturn(Collections.singleton("attributeOne"));
+    when(mockSession.getAttribute(eq("attributeOne"))).thenReturn("test");
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    GemFireSession<?> sessionCopy = GemFireSession.copy(mockSession);
 
-		when(mockEntryEvent.getOperation()).thenReturn(Operation.LOCAL_LOAD_UPDATE);
+    assertThat(sessionCopy).isNotNull();
+    assertThat(sessionCopy).isNotInstanceOf(DeltaCapableGemFireSession.class);
+    assertThat(sessionCopy.getId()).isEqualTo(mockSession.getId());
+    assertThat(sessionCopy.getCreationTime()).isEqualTo(mockSession.getCreationTime());
+    assertThat(sessionCopy.hasDelta()).isTrue();
+    assertThat(sessionCopy.getLastAccessedTime()).isEqualTo(mockSession.getLastAccessedTime());
+    assertThat(sessionCopy.getMaxInactiveInterval()).isEqualTo(mockSession.getMaxInactiveInterval());
+    assertThat(sessionCopy.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(sessionCopy.<String>getAttribute("attributeOne")).isEqualTo("test");
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.isLocalLoadEvent(mockEntryEvent)).isTrue();
-		assertThat(sessionEventHandler.isNotLocalLoadEvent(mockEntryEvent)).isFalse();
+    verify(mockSession, times(2)).getId();
+    verify(mockSession, times(2)).getCreationTime();
+    verify(mockSession, times(2)).getLastAccessedTime();
+    verify(mockSession, times(2)).getMaxInactiveInterval();
+    verify(mockSession, times(1)).getAttributeNames();
+    verify(mockSession, times(1)).getAttribute(eq("attributeOne"));
+  }
 
-		verify(mockEntryEvent, times(4)).getOperation();
-	}
+  @Test
+  public void copySessionWhenUsingDataSerialization() {
 
-	@Test
-	public void isRememberedWithKnownSessionId() {
+    this.sessionRepository.setUseDataSerialization(true);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    assertThat(AbstractGemFireOperationsSessionRepository.isUsingDataSerialization()).isTrue();
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.getCachedSessionIds().add(ObjectUtils.nullSafeHashCode(1))).isTrue();
-		assertThat(sessionEventHandler.isRemembered(1)).isTrue();
-	}
+    Session mockSession = mockSession();
 
-	@Test
-	public void isRememberedWithUnknownSessionId() {
+    when(mockSession.getAttributeNames()).thenReturn(Collections.singleton("attributeOne"));
+    when(mockSession.getAttribute(eq("attributeOne"))).thenReturn("test");
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    GemFireSession<?> sessionCopy = GemFireSession.copy(mockSession);
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.getCachedSessionIds()).isEmpty();
-		assertThat(sessionEventHandler.isRemembered(1)).isFalse();
-		assertThat(sessionEventHandler.getCachedSessionIds()).isEmpty();
-	}
+    assertThat(sessionCopy).isInstanceOf(DeltaCapableGemFireSession.class);
+    assertThat(sessionCopy.getId()).isEqualTo(mockSession.getId());
+    assertThat(sessionCopy.getCreationTime()).isEqualTo(mockSession.getCreationTime());
+    assertThat(sessionCopy.hasDelta()).isTrue();
+    assertThat(sessionCopy.getLastAccessedTime()).isEqualTo(mockSession.getLastAccessedTime());
+    assertThat(sessionCopy.getMaxInactiveInterval()).isEqualTo(mockSession.getMaxInactiveInterval());
+    assertThat(sessionCopy.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(sessionCopy.<String>getAttribute("attributeOne")).isEqualTo("test");
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void forgetsEntryEvent() {
+    verify(mockSession, times(2)).getId();
+    verify(mockSession, times(2)).getCreationTime();
+    verify(mockSession, times(2)).getLastAccessedTime();
+    verify(mockSession, times(2)).getMaxInactiveInterval();
+    verify(mockSession, times(1)).getAttributeNames();
+    verify(mockSession, times(1)).getAttribute(eq("attributeOne"));
+  }
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+  @Test
+  public void fromExistingGemFireSessionIsGemFireSession() {
 
-		assertThat(sessionEventHandler).isNotNull();
+    GemFireSession<?> gemfireSession = GemFireSession.create();
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    GemFireSession<?> fromGemFireSession = GemFireSession.from(gemfireSession);
 
-		when(mockEntryEvent.getKey()).thenReturn(1);
+    assertThat(fromGemFireSession).isSameAs(gemfireSession);
+  }
 
-		assertThat(sessionEventHandler.getCachedSessionIds().add(ObjectUtils.nullSafeHashCode(1))).isTrue();
-		assertThat(sessionEventHandler.isRemembered(1)).isTrue();
-		assertThat(sessionEventHandler.forget(mockEntryEvent)).isTrue();
-		assertThat(sessionEventHandler.isRemembered(1)).isFalse();
-		assertThat(sessionEventHandler.getCachedSessionIds()).isEmpty();
+  @Test
+  public void fromExistingSessionCopiesSession() {
 
-		verify(mockEntryEvent, times(1)).getKey();
-	}
+    Instant expectedCreationTime = Instant.ofEpochMilli(1L);
+    Instant expectedLastAccessedTime = Instant.ofEpochMilli(2L);
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void forgetEntryEventWithNullKey() {
+    Duration expectedMaxInactiveInterval = Duration.ofSeconds(MAX_INACTIVE_INTERVAL_IN_SECONDS);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    Session mockSession = mockSession("4", expectedCreationTime.toEpochMilli(),
+        expectedLastAccessedTime.toEpochMilli(), MAX_INACTIVE_INTERVAL_IN_SECONDS);
 
-		assertThat(sessionEventHandler).isNotNull();
+    when(mockSession.getAttributeNames()).thenReturn(Collections.emptySet());
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    GemFireSession<?> gemfireSession = GemFireSession.from(mockSession);
 
-		when(mockEntryEvent.getKey()).thenReturn(null);
+    assertThat(gemfireSession).isNotNull();
+    assertThat(gemfireSession.getId()).isEqualTo("4");
+    assertThat(gemfireSession.getCreationTime()).isEqualTo(expectedCreationTime);
+    assertThat(gemfireSession.hasDelta()).isTrue();
+    assertThat(gemfireSession.getLastAccessedTime()).isEqualTo(expectedLastAccessedTime);
+    assertThat(gemfireSession.getMaxInactiveInterval()).isEqualTo(expectedMaxInactiveInterval);
+    assertThat(gemfireSession.getAttributes()).isNotNull();
+    assertThat(gemfireSession.getAttributes()).isEmpty();
 
-		assertThat(sessionEventHandler.forget(mockEntryEvent)).isFalse();
+    verify(mockSession, times(1)).getId();
+    verify(mockSession, times(1)).getCreationTime();
+    verify(mockSession, times(1)).getLastAccessedTime();
+    verify(mockSession, times(1)).getMaxInactiveInterval();
+    verify(mockSession, times(1)).getAttributeNames();
+    verify(mockSession, never()).getAttribute(anyString());
+  }
 
-		verify(mockEntryEvent, times(1)).getKey();
-	}
+  @Test(expected = IllegalArgumentException.class)
+  public void fromNullSessionThrowsIllegalArgumentException() {
 
-	@Test
-	public void forgetNullEntryEvent() {
+    try {
+      GemFireSession.from(null);
+    } catch (IllegalArgumentException expected) {
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+      assertThat(expected).hasMessage("Session is required");
+      assertThat(expected).hasNoCause();
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.forget(null)).isFalse();
-	}
+      throw expected;
+    }
+  }
 
-	@Test
-	public void forgetKnownSessionId() {
+  @Test
+  public void newSessionAttributesIsConfiguredCorrectly() {
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    GemFireSession<?> session = new GemFireSession<>();
 
-		assertThat(sessionEventHandler).isNotNull();
+    session.setIsDirtyPredicate(EqualsDirtyPredicate.INSTANCE);
 
-		assertThat(sessionEventHandler.getCachedSessionIds().add(ObjectUtils.nullSafeHashCode(1))).isTrue();
-		assertThat(sessionEventHandler.isRemembered(1)).isTrue();
-		assertThat(sessionEventHandler.forget(1)).isTrue();
-		assertThat(sessionEventHandler.isRemembered(1)).isFalse();
-		assertThat(sessionEventHandler.getCachedSessionIds()).isEmpty();
-	}
+    assertThat(session.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
 
-	@Test
-	public void forgetNullSessionId() {
+    GemFireSessionAttributes sessionAttributes = session.newSessionAttributes(session);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    assertThat(sessionAttributes).isNotNull();
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
+    assertThat(sessionAttributes.getLock()).isSameAs(session);
+  }
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.forget((Object) null)).isFalse();
-	}
+  @Test
+  public void newDeltaCapableSessionAttributesIsConfiguredCorrectly() {
 
-	@Test
-	public void forgetUnknownSessionId() {
+    DeltaCapableGemFireSession session = new DeltaCapableGemFireSession();
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    session.setIsDirtyPredicate(IdentityEqualsDirtyPredicate.INSTANCE);
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.forget(1)).isFalse();
-	}
+    assertThat(session.getIsDirtyPredicate()).isEqualTo(IdentityEqualsDirtyPredicate.INSTANCE);
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void remembersEntryEvent() {
+    DeltaCapableGemFireSessionAttributes sessionAttributes = session.newSessionAttributes(session);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    assertThat(sessionAttributes).isNotNull();
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(IdentityEqualsDirtyPredicate.INSTANCE);
+    assertThat(sessionAttributes.getLock()).isEqualTo(session);
+  }
 
-		assertThat(sessionEventHandler).isNotNull();
+  @Test
+  public void changeSessionIdIsCorrect() {
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    GemFireSession<?> session = new GemFireSession<>();
 
-		when(mockEntryEvent.getKey()).thenReturn(1);
-		when(mockEntryEvent.getNewValue()).thenReturn(this.mockSession);
+    String sessionId = session.getId();
 
-		assertThat(sessionEventHandler.isRemembered(1)).isFalse();
-		assertThat(sessionEventHandler.remember(mockEntryEvent)).isTrue();
-		assertThat(sessionEventHandler.isRemembered(1)).isTrue();
+    assertThat(sessionId).isNotEmpty();
+    assertThat(session.changeSessionId()).isNotEmpty();
+    assertThat(session.getId()).isNotEqualTo(sessionId);
+  }
 
-		verify(mockEntryEvent, times(1)).getKey();
-		verify(mockEntryEvent, times(1)).getNewValue();
-	}
+  @Test
+  public void setGetAndRemoveAttribute() {
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void rememberEntryEventWithInvalidSessionId() {
+    GemFireSession<?> session = GemFireSession.create();
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    assertThat(session).isNotNull();
+    assertThat(session.getAttributeNames()).isEmpty();
 
-		assertThat(sessionEventHandler).isNotNull();
+    session.setAttribute("attributeOne", "testOne");
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    assertThat(session.getAttributeNames()).containsOnly("attributeOne");
+    assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(session.<String>getAttribute("attributeTwo")).isNull();
 
-		when(mockEntryEvent.getKey()).thenReturn(null);
-		when(mockEntryEvent.getNewValue()).thenReturn(this.mockSession);
+    session.setAttribute("attributeTwo", "testTwo");
 
-		assertThat(sessionEventHandler.remember(mockEntryEvent)).isFalse();
-		assertThat(sessionEventHandler.getCachedSessionIds()).isEmpty();
+    assertThat(session.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
+    assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(session.<String>getAttribute("attributeTwo")).isEqualTo("testTwo");
 
-		verify(mockEntryEvent, times(1)).getKey();
-		verify(mockEntryEvent, times(1)).getNewValue();
-	}
+    session.setAttribute("attributeTwo", null);
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void rememberEntryEventWithInvalidValue() {
+    assertThat(session.getAttributeNames()).containsOnly("attributeOne");
+    assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(session.<String>getAttribute("attributeTwo")).isNull();
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    session.removeAttribute("attributeOne");
 
-		assertThat(sessionEventHandler).isNotNull();
+    assertThat(session.getAttributeNames()).isEmpty();
+    assertThat(session.<String>getAttribute("attributeOne")).isNull();
+    assertThat(session.<String>getAttribute("attributeTwo")).isNull();
+  }
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+  @Test
+  public void isExpiredWhenMaxInactiveIntervalIsNegativeReturnsFalse() {
 
-		when(mockEntryEvent.getNewValue()).thenReturn(new Tombstone());
+    Duration expectedMaxInactiveIntervalInSeconds = Duration.ofSeconds(-1);
 
-		assertThat(sessionEventHandler.remember(mockEntryEvent)).isFalse();
-		assertThat(sessionEventHandler.getCachedSessionIds()).isEmpty();
+    GemFireSession<?> session = GemFireSession.create()
+        .configureWith(expectedMaxInactiveIntervalInSeconds);
 
-		verify(mockEntryEvent, never()).getKey();
-		verify(mockEntryEvent, times(1)).getNewValue();
-	}
+    assertThat(session).isNotNull();
+    assertThat(session.getMaxInactiveInterval()).isEqualTo(expectedMaxInactiveIntervalInSeconds);
+    assertThat(session.isExpired()).isFalse();
+  }
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void rememberEntryEventWithNullValue() {
+  @Test
+  public void isExpiredWhenMaxInactiveIntervalIsNullReturnsFalse() {
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    GemFireSession<?> session = GemFireSession.create();
 
-		assertThat(sessionEventHandler).isNotNull();
+    assertThat(session).isNotNull();
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    session.setMaxInactiveInterval(null);
 
-		when(mockEntryEvent.getNewValue()).thenReturn(null);
+    assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
+    assertThat(session.isExpired()).isFalse();
+  }
 
-		assertThat(sessionEventHandler.remember(mockEntryEvent)).isFalse();
-		assertThat(sessionEventHandler.getCachedSessionIds()).isEmpty();
+  @Test
+  public void isExpiredWhenMaxInactiveIntervalIsZeroReturnsFalse() {
 
-		verify(mockEntryEvent, never()).getKey();
-		verify(mockEntryEvent, times(1)).getNewValue();
-	}
+    GemFireSession<?> session = GemFireSession.create();
 
-	@Test
-	public void rememberNullEntryEvent() {
+    assertThat(session).isNotNull();
+    assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
+    assertThat(session.isExpired()).isFalse();
+  }
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+  @Test
+  public void isExpiredWhenSessionIsActiveReturnsFalse() {
 
-		assertThat(sessionEventHandler).isNotNull();
+    long expectedMaxInactiveIntervalInSeconds = TimeUnit.HOURS.toSeconds(2);
 
-		assertThat(sessionEventHandler.remember(null)).isFalse();
-		assertThat(sessionEventHandler.getCachedSessionIds()).isEmpty();
-	}
+    GemFireSession<?> session = GemFireSession.create()
+        .configureWith(Duration.ofSeconds(expectedMaxInactiveIntervalInSeconds));
 
-	@Test
-	public void rememberNullSessionId() {
+    assertThat(session).isNotNull();
+    assertThat(session.getMaxInactiveInterval())
+        .isEqualTo(Duration.ofSeconds(expectedMaxInactiveIntervalInSeconds));
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    Instant now = Instant.now();
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.isRemembered(null)).isFalse();
-		assertThat(sessionEventHandler.remember((Object) null)).isTrue();
-		assertThat(sessionEventHandler.isRemembered(null)).isTrue();
-		assertThat(sessionEventHandler.getCachedSessionIds()).containsExactly(0);
-	}
+    session.setLastAccessedTime(now);
 
-	@Test
-	public void remembersSessionId() {
+    assertThat(session.getLastAccessedTime()).isEqualTo(now);
+    assertThat(session.isExpired()).isFalse();
+  }
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+  @Test
+  public void isExpiredWhenSessionIsInactiveReturnsTrue() {
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.isRemembered(1)).isFalse();
-		assertThat(sessionEventHandler.remember(1)).isTrue();
-		assertThat(sessionEventHandler.isRemembered(1)).isTrue();
-	}
+    Duration maxInactiveInterval = Duration.ofMillis(1);
 
-	@Test
-	public void isSessionWithEntryEventContainingNull() {
+    GemFireSession<?> session = GemFireSession.create()
+        .configureWith(maxInactiveInterval);
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    assertThat(session).isNotNull();
+    assertThat(session.getMaxInactiveInterval()).isEqualTo(maxInactiveInterval);
 
-		when(mockEntryEvent.getNewValue()).thenReturn(null);
+    long diff;
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    do {
+      diff = System.currentTimeMillis() - session.getLastAccessedTime().toEpochMilli();
+    }
+    while (diff < maxInactiveInterval.toMillis() + 1);
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.isSession(mockEntryEvent)).isFalse();
-	}
+    assertThat(session.isExpired()).isTrue();
+  }
 
-	@Test
-	public void isSessionWithEntryEventContainingSession() {
+  @Test
+  public void setAndGetGemFireSessionIsDirtyPredicate() {
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    GemFireSession<?> session = GemFireSession.create();
 
-		when(mockEntryEvent.getNewValue()).thenReturn(this.mockSession);
+    assertThat(session).isNotNull();
+    assertThat(session.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    IsDirtyPredicate mockDirtyPredicate = mock(IsDirtyPredicate.class);
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.isSession(mockEntryEvent)).isTrue();
-	}
+    session.setIsDirtyPredicate(mockDirtyPredicate);
 
-	@Test
-	public void isSessionWithEntryEventContainingTombstone() {
+    assertThat(session.getIsDirtyPredicate()).isEqualTo(mockDirtyPredicate);
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    session.setIsDirtyPredicate(null);
 
-		when(mockEntryEvent.getNewValue()).thenReturn(new Tombstone());
+    assertThat(session.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    session.setIsDirtyPredicate(EqualsDirtyPredicate.INSTANCE);
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.isSession(mockEntryEvent)).isFalse();
-	}
+    assertThat(session.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
+  }
 
-	@Test
-	public void isSessionWithNullEntryEvent() {
+  @Test
+  public void setAndGetLastAccessedTime() {
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    Instant inTheBeginning = Instant.now();
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.isSession(null)).isFalse();
-	}
+    GemFireSession<?> session = GemFireSession.create();
 
-	@Test
-	public void isSessionWithNull() {
+    assertThat(session).isNotNull();
+    assertThat(session.getLastAccessedTime()).isAfterOrEqualTo(inTheBeginning);
+    assertThat(session.getLastAccessedTime()).isBeforeOrEqualTo(Instant.now());
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    Instant lastAccessedTime = session.getLastAccessedTime();
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.isSession((Object) null)).isFalse();
-	}
+    session.setLastAccessedTime(Instant.now());
 
-	@Test
-	public void isSessionWithSession() {
+    assertThat(session.getLastAccessedTime()).isAfterOrEqualTo(lastAccessedTime);
+    assertThat(session.getLastAccessedTime()).isBeforeOrEqualTo(Instant.now());
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    lastAccessedTime = session.getLastAccessedTime();
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.isSession(this.mockSession)).isTrue();
-	}
+    session.setLastAccessedTime(lastAccessedTime.plusSeconds(5));
 
-	@Test
-	public void isSessionWithTombstone() {
+    assertThat(session.getLastAccessedTime()).isAfter(lastAccessedTime);
+    assertThat(session.getLastAccessedTime()).isEqualTo(lastAccessedTime.plusSeconds(5));
+  }
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+  @Test
+  public void setLastAccessedTimeInThePast() {
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.isSession(new Tombstone())).isFalse();
-	}
+    GemFireSession<?> session = GemFireSession.create();
 
-	@Test
-	public void toSessionWithSessionAndSessionId() {
+    assertThat(session).isNotNull();
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    Instant lastAccessedTime = session.getLastAccessedTime();
 
-		assertThat(sessionEventHandler).isNotNull();
-		assertThat(sessionEventHandler.toSession(this.mockSession, "12345")).isSameAs(this.mockSession);
-	}
+    assertThat(lastAccessedTime).isNotNull();
+    assertThat(lastAccessedTime).isBeforeOrEqualTo(Instant.now());
 
-	@Test
-	@SuppressWarnings("all")
-	public void toSessionWithTombstoneAndSessionId() {
+    session.setLastAccessedTime(lastAccessedTime.minusMillis(1));
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    assertThat(session.getLastAccessedTime()).isEqualTo(lastAccessedTime.minusMillis(1));
+    assertThat(session.getLastAccessedTime()).isBefore(Instant.now());
 
-		assertThat(sessionEventHandler).isNotNull();
+    session.setLastAccessedTime(lastAccessedTime.minusSeconds(300));
 
-		Tombstone tombstone = new Tombstone();
+    assertThat(session.getLastAccessedTime()).isEqualTo(lastAccessedTime.minusSeconds(300));
+    assertThat(session.getLastAccessedTime()).isBefore(Instant.now());
+  }
 
-		Session session = sessionEventHandler.toSession(tombstone, "12345");
+  @Test
+  public void setLastAccessedTimeCannotBeSetToNull() {
 
-		assertThat(session).isNotNull();
-		assertThat(session).isNotSameAs(tombstone);
-		assertThat(session.getId()).isEqualTo("12345");
-	}
+    GemFireSession<?> session = GemFireSession.create();
 
-	private void testToSessionWithNullSessionAndInvalidSessionId(String sessionId) {
+    assertThat(session).isNotNull();
 
-		SessionEventHandlerCacheListenerAdapter sessionEventHandler = this.sessionRepository.newSessionEventHandler();
+    Instant lastAccessedTime = session.getLastAccessedTime();
 
-		assertThat(sessionEventHandler).isNotNull();
+    assertThat(lastAccessedTime).isNotNull();
+    assertThat(lastAccessedTime).isBeforeOrEqualTo(Instant.now());
 
-		try {
-			sessionEventHandler.toSession(null, sessionId);
-		}
-		catch (IllegalStateException expected) {
+    session.setLastAccessedTime(null);
 
-			assertThat(expected)
-				.hasMessage("The Session or the Session ID [%s] must be known to trigger a Session event",
-					sessionId);
+    assertThat(session.getLastAccessedTime()).isEqualTo(lastAccessedTime);
+    assertThat(lastAccessedTime).isBeforeOrEqualTo(Instant.now());
+  }
 
-			assertThat(expected).hasNoCause();
+  @Test
+  public void setAndGetPrincipalName() {
 
-			throw expected;
-		}
-	}
+    GemFireSession<?> session = GemFireSession.create();
 
-	@Test(expected = IllegalStateException.class)
-	public void toSessionWithNullSessionAndEmptySessionId() {
-		testToSessionWithNullSessionAndInvalidSessionId("");
-	}
+    assertThat(session).isNotNull();
+    assertThat(session.getPrincipalName()).isNull();
 
-	@Test(expected = IllegalStateException.class)
-	public void toSessionWithNullSessionAndNullSessionId() {
-		testToSessionWithNullSessionAndInvalidSessionId(null);
-	}
+    session.setPrincipalName("jxblum");
 
-	@Test(expected = IllegalStateException.class)
-	public void toSessionWithNullSessionAndUnspecifiedSessionId() {
-		testToSessionWithNullSessionAndInvalidSessionId(null);
-	}
+    assertThat(session.getPrincipalName()).isEqualTo("jxblum");
+    assertThat(session.getAttributeNames()).isEqualTo(asSet(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME));
+    assertThat(session.<String>getAttribute(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME)).isEqualTo("jxblum");
 
-	@Test
-	public void constructSessionIdInterestRegisteringCacheListener() {
+    session.setAttribute(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME, "rwinch");
 
-		SessionIdInterestRegisteringCacheListener listener =
-			new SessionIdInterestRegisteringCacheListener(this.sessionRepository);
+    assertThat(session.getAttributeNames()).isEqualTo(asSet(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME));
+    assertThat(session.<String>getAttribute(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME)).isEqualTo("rwinch");
+    assertThat(session.getPrincipalName()).isEqualTo("rwinch");
 
-		assertThat(listener).isNotNull();
-		assertThat(listener.getSessionRepository()).isSameAs(this.sessionRepository);
-	}
+    session.removeAttribute(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME);
 
-	@Test(expected = IllegalArgumentException.class)
-	public void constructSessionIdInterestRegisteringCacheListenerWithNull() {
+    assertThat(session.getPrincipalName()).isNull();
+  }
 
-		try {
-			new SessionIdInterestRegisteringCacheListener(null);
-		}
-		catch (IllegalArgumentException expected) {
+  @Test
+  public void configuresIsDirtyPredicateReturnsGemFireSession() {
 
-			assertThat(expected).hasMessage("SessionRepository is required");
-			assertThat(expected).hasNoCause();
+    GemFireSession<?> session = new GemFireSession<>();
 
-			throw expected;
-		}
-	}
+    assertThat(session.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    assertThat(session.configureWith(EqualsDirtyPredicate.INSTANCE)).isSameAs(session);
+    assertThat(session.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
+  }
 
-	@Test
-	public void constructSessionIdInterestRegisteringCacheListenerUsingSessionRepository() {
+  @Test
+  public void configuresMaxInactiveIntervalReturnsGemFireSession() {
 
-		SessionIdInterestRegisteringCacheListener listener = this.sessionRepository.newSessionIdInterestRegistrar();
+    GemFireSession<?> session = new GemFireSession<>();
 
-		assertThat(listener).isNotNull();
-		assertThat(listener.getSessionRepository()).isSameAs(this.sessionRepository);
-	}
+    assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
+    assertThat(session.configureWith(Duration.ofSeconds(1))).isSameAs(session);
+    assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ofSeconds(1));
+  }
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void sessionIdInterestRegisteringCacheListerAfterCreateCallsRegisterInterest() {
+  @Test
+  public void sessionToDelta() throws Exception {
 
-		SessionIdInterestRegisteringCacheListener listener =
-			spy(this.sessionRepository.newSessionIdInterestRegistrar());
+    DataOutput mockDataOutput = mock(DataOutput.class);
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    DeltaCapableGemFireSession session = new DeltaCapableGemFireSession();
 
-		when(mockEntryEvent.getKey()).thenReturn("1");
+    Instant lastAccessedTime = session.getLastAccessedTime().plusSeconds(1);
 
-		listener.afterCreate(mockEntryEvent);
+    session.setLastAccessedTime(lastAccessedTime);
+    session.setMaxInactiveInterval(Duration.ofSeconds(300L));
+    session.setAttribute("attributeOne", "test");
 
-		verify(listener, times(1)).getSessionRepository();
-		verify(mockEntryEvent, times(1)).getKey();
-		verify(this.sessionRepository).registerInterest(eq("1"));
-	}
+    assertThat(session.hasDelta()).isTrue();
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void sessionIdInterestRegisteringCacheListerAfterDestroyCallsUnregisterInterest() {
+    session.toDelta(mockDataOutput);
 
-		SessionIdInterestRegisteringCacheListener listener =
-			spy(this.sessionRepository.newSessionIdInterestRegistrar());
+    assertThat(session.hasDelta()).isTrue();
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    verify(mockDataOutput, times(1)).writeUTF(eq(session.getId()));
+    verify(mockDataOutput, times(1)).writeLong(eq(lastAccessedTime.toEpochMilli()));
+    verify(mockDataOutput, times(1)).writeLong(eq(300L));
+    verify(mockDataOutput, times(1)).writeInt(eq(1));
+    verify(mockDataOutput, times(1)).writeUTF(eq("attributeOne"));
+  }
 
-		when(mockEntryEvent.getKey()).thenReturn("1");
+  @Test
+  public void sessionFromDelta() throws Exception {
 
-		listener.afterDestroy(mockEntryEvent);
+    DataInput mockDataInput = mock(DataInput.class);
 
-		verify(listener, times(1)).getSessionRepository();
-		verify(mockEntryEvent, times(1)).getKey();
-		verify(this.sessionRepository).unregisterInterest(eq("1"));
-	}
+    Instant lastAccessedTime = Instant.now().plusSeconds(5);
 
-	@Test
-	@SuppressWarnings("unchecked")
-	public void sessionIdInterestRegisteringCacheListerAfterInvalidateCallsUnregisterInterest() {
+    when(mockDataInput.readUTF()).thenReturn("1");
+    when(mockDataInput.readLong()).thenReturn(lastAccessedTime.toEpochMilli()).thenReturn(300L);
+    when(mockDataInput.readInt()).thenReturn(0);
 
-		SessionIdInterestRegisteringCacheListener listener =
-			spy(this.sessionRepository.newSessionIdInterestRegistrar());
+    DeltaCapableGemFireSession session = new DeltaCapableGemFireSession();
 
-		EntryEvent mockEntryEvent = mock(EntryEvent.class);
+    Instant creationTime = session.getCreationTime();
 
-		when(mockEntryEvent.getKey()).thenReturn("1");
+    session.fromDelta(mockDataInput);
 
-		listener.afterInvalidate(mockEntryEvent);
+    assertThat(session.getId()).isEqualTo("1");
+    assertThat(session.getCreationTime()).isEqualTo(creationTime);
+    assertThat(session.getLastAccessedTime()).isEqualTo(lastAccessedTime.truncatedTo(ChronoUnit.MILLIS));
+    assertThat(session.hasDelta()).isTrue();
+    assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ofSeconds(300L));
+    assertThat(session.getAttributeNames().isEmpty()).isTrue();
 
-		verify(listener, times(1)).getSessionRepository();
-		verify(mockEntryEvent, times(1)).getKey();
-		verify(this.sessionRepository).unregisterInterest(eq("1"));
-	}
+    verify(mockDataInput, times(1)).readUTF();
+    verify(mockDataInput, times(2)).readLong();
+    verify(mockDataInput, times(1)).readInt();
+  }
 
-	@Test
-	public void constructDefaultGemFireSession() {
+  @Test
+  public void sessionHasDeltaWithExistingSessionReturnsTrue() {
 
-		Instant testCreationTime = Instant.now();
+    GemFireSession<?> session = GemFireSession.from(mockSession());
 
-		GemFireSession session = new GemFireSession();
+    assertThat(session).isNotNull();
+    assertThat(session.hasDelta()).isTrue();
+  }
 
-		assertThat(session.getId()).isNotNull();
-		assertThat(session.getCreationTime()).isAfterOrEqualTo(testCreationTime);
-		assertThat(session.hasDelta()).isTrue();
-		assertThat(session.getLastAccessedTime()).isEqualTo(session.getCreationTime());
-		assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
-		assertThat(session.getAttributes()).isNotNull();
-		assertThat(session.getAttributes()).isEmpty();
-	}
+  @Test
+  public void sessionHasDeltaWithNewSessionReturnsTrue() {
 
-	@Test
-	public void constructGemFireSessionWithId() {
+    GemFireSession<?> session = GemFireSession.create();
 
-		Instant testCreationTime = Instant.now();
+    assertThat(session).isNotNull();
+    assertThat(session.hasDelta()).isTrue();
+  }
 
-		GemFireSession session = new GemFireSession("1");
+  @Test
+  public void sessionHasDeltaWhenSessionIsNotDirtyReturnsFalse() {
+    assertThat(newNonDirtyGemFireSession().hasDelta()).isFalse();
+  }
 
-		assertThat(session.getId()).isEqualTo("1");
-		assertThat(session.getCreationTime()).isAfterOrEqualTo(testCreationTime);
-		assertThat(session.hasDelta()).isTrue();
-		assertThat(session.getLastAccessedTime()).isEqualTo(session.getCreationTime());
-		assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
-		assertThat(session.getAttributes()).isNotNull();
-		assertThat(session.getAttributes()).isEmpty();
-	}
+  @Test
+  public void sessionHasDeltaWhenSessionAttributeIsAddedReturnsTrue() {
 
-	private void testConstructGemFireSessionWithInvalidId(String id) {
+    GemFireSession<?> session = newNonDirtyGemFireSession();
 
-		try {
-			new GemFireSession(id);
-		}
-		catch (IllegalArgumentException expected) {
+    assertThat(session).isNotNull();
+    assertThat(session.getAttributeNames()).isEmpty();
+    assertThat(session.hasDelta()).isFalse();
 
-			assertThat(expected).hasMessage("ID is required");
-			assertThat(expected).hasNoCause();
+    session.setAttribute("attributeOne", "one");
 
-			throw expected;
-		}
-	}
+    assertThat(session.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("one");
+    assertThat(session.hasDelta()).isTrue();
 
-	@Test(expected = IllegalArgumentException.class)
-	public void constructGemFireSessionWithEmptyId() {
-		testConstructGemFireSessionWithInvalidId("");
-	}
+    session.commit();
 
-	@Test(expected = IllegalArgumentException.class)
-	public void constructGemFireSessionWithNullId() {
-		testConstructGemFireSessionWithInvalidId(null);
-	}
+    assertThat(session.hasDelta()).isFalse();
+  }
 
-	@Test(expected = IllegalArgumentException.class)
-	public void constructGemFireSessionWithUnspecifiedId() {
-		testConstructGemFireSessionWithInvalidId("  ");
-	}
+  @Test
+  public void sessionHasDeltaWhenSessionAttributeIsRemovedReturnsTrue() {
 
-	@Test
-	public void constructGemFireSessionWithSession() {
+    GemFireSession<?> session = GemFireSession.create();
 
-		Instant expectedCreationTime = Instant.ofEpochMilli(1L);
-		Instant expectedLastAccessTime = Instant.ofEpochMilli(2L);
+    assertThat(session).isNotNull();
 
-		Duration expectedMaxInactiveInterval = Duration.ofSeconds(MAX_INACTIVE_INTERVAL_IN_SECONDS);
+    session.setAttribute("attributeOne", "one");
+    session.commit();
 
-		Session mockSession = mockSession("2", expectedCreationTime.toEpochMilli(),
-			expectedLastAccessTime.toEpochMilli(), MAX_INACTIVE_INTERVAL_IN_SECONDS);
+    assertThat(session.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("one");
+    assertThat(session.hasDelta()).isFalse();
 
-		Set<String> expectedAttributedNames = asSet("attributeOne", "attributeTwo");
+    session.removeAttribute("attributeOne");
 
-		when(mockSession.getAttributeNames()).thenReturn(expectedAttributedNames);
-		when(mockSession.getAttribute(eq("attributeOne"))).thenReturn("testOne");
-		when(mockSession.getAttribute(eq("attributeTwo"))).thenReturn("testTwo");
+    assertThat(session.getAttributeNames()).isEmpty();
+    assertThat(session.<String>getAttribute("attributeOne")).isNull();
+    assertThat(session.hasDelta()).isTrue();
 
-		GemFireSession gemfireSession = new GemFireSession(mockSession);
+    session.commit();
 
-		assertThat(gemfireSession.getId()).isEqualTo("2");
-		assertThat(gemfireSession.getCreationTime()).isEqualTo(expectedCreationTime);
-		assertThat(gemfireSession.hasDelta()).isTrue();
-		assertThat(gemfireSession.getLastAccessedTime()).isEqualTo(expectedLastAccessTime);
-		assertThat(gemfireSession.getMaxInactiveInterval()).isEqualTo(expectedMaxInactiveInterval);
-		assertThat(gemfireSession.getAttributeNames()).isEqualTo(expectedAttributedNames);
-		assertThat(gemfireSession.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(gemfireSession.<String>getAttribute("attributeTwo")).isEqualTo("testTwo");
+    assertThat(session.hasDelta()).isFalse();
+  }
 
-		verify(mockSession, times(1)).getId();
-		verify(mockSession, times(1)).getCreationTime();
-		verify(mockSession, times(1)).getLastAccessedTime();
-		verify(mockSession, times(1)).getMaxInactiveInterval();
-		verify(mockSession, times(1)).getAttributeNames();
-		verify(mockSession, times(1)).getAttribute(eq("attributeOne"));
-		verify(mockSession, times(1)).getAttribute(eq("attributeTwo"));
-	}
+  @Test
+  public void sessionHasDeltaWhenSessionAttributeIsUpdatedReturnsTrue() {
 
-	@Test(expected = IllegalArgumentException.class)
-	public void constructGemFireSessionWithNull() {
+    GemFireSession<?> session = GemFireSession.create();
 
-		try {
-			new GemFireSession((Session) null);
-		}
-		catch (IllegalArgumentException expected) {
+    assertThat(session).isNotNull();
 
-			assertThat(expected).hasMessage("Session is required");
-			assertThat(expected).hasNoCause();
+    session.setAttribute("attributeOne", "one");
+    session.commit();
 
-			throw expected;
-		}
-	}
+    assertThat(session.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("one");
+    assertThat(session.hasDelta()).isFalse();
 
-	@Test
-	public void createNewGemFireSession() {
+    session.setAttribute("attributeOne", "two");
 
-		assertThat(AbstractGemFireOperationsSessionRepository.isUsingDataSerialization()).isFalse();
+    assertThat(session.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("two");
+    assertThat(session.hasDelta()).isTrue();
 
-		Instant testCreationTime = Instant.now();
+    session.commit();
 
-		GemFireSession<?> session = GemFireSession.create();
+    assertThat(session.hasDelta()).isFalse();
+  }
 
-		assertThat(session).isNotNull();
-		assertThat(session).isNotInstanceOf(DeltaCapableGemFireSession.class);
-		assertThat(session.getId()).isNotEmpty();
-		assertThat(session.getCreationTime()).isAfterOrEqualTo(testCreationTime);
-		assertThat(session.getCreationTime()).isBeforeOrEqualTo(Instant.now());
-		assertThat(session.hasDelta()).isTrue();
-		assertThat(session.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
-		assertThat(session.getLastAccessedTime()).isEqualTo(session.getCreationTime());
-		assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
-		assertThat(session.getAttributes()).isNotNull();
-		assertThat(session.getAttributes()).isEmpty();
-	}
+  @Test
+  public void sessionHasDeltaWhenSessionIdChangesReturnsTrue() {
 
-	@Test
-	public void createNewDeltaCapableGemFireSession() {
+    GemFireSession<?> session = newNonDirtyGemFireSession();
 
-		this.sessionRepository.setUseDataSerialization(true);
+    assertThat(session).isNotNull();
+    assertThat(session.getId()).isNotEmpty();
+    assertThat(session.hasDelta()).isFalse();
 
-		assertThat(AbstractGemFireOperationsSessionRepository.isUsingDataSerialization()).isTrue();
+    String currentSessionId = session.getId();
 
-		Instant testCreationTime = Instant.now();
+    assertThat(currentSessionId).isNotEmpty();
+    assertThat(session.changeSessionId()).isNotEqualTo(currentSessionId);
+    assertThat(session.hasDelta()).isTrue();
 
-		GemFireSession<?> session = GemFireSession.create();
+    session.commit();
 
-		assertThat(session).isInstanceOf(DeltaCapableGemFireSession.class);
-		assertThat(session.getId()).isNotEmpty();
-		assertThat(session.getCreationTime()).isAfterOrEqualTo(testCreationTime);
-		assertThat(session.getCreationTime()).isBeforeOrEqualTo(Instant.now());
-		assertThat(session.hasDelta()).isTrue();
-		assertThat(session.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
-		assertThat(session.getLastAccessedTime()).isEqualTo(session.getCreationTime());
-		assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
-		assertThat(session.getAttributes()).isNotNull();
-		assertThat(session.getAttributes()).isEmpty();
-	}
+    assertThat(session.hasDelta()).isFalse();
+  }
 
-	@Test(expected = IllegalArgumentException.class)
-	public void copyNullThrowsIllegalArgumentException() {
+  @Test
+  public void sessionHasDeltaWhenSessionLastAccessedTimeChangesReturnsTrue() {
 
-		try {
-			GemFireSession.copy(null);
-		}
-		catch (IllegalArgumentException expected) {
+    GemFireSession<?> session = newNonDirtyGemFireSession();
 
-			assertThat(expected).hasMessage("Session is required");
-			assertThat(expected).hasNoCause();
+    assertThat(session).isNotNull();
+    assertThat(session.hasDelta()).isFalse();
 
-			throw expected;
-		}
-	}
+    Instant lastAccessedTime = session.getLastAccessedTime();
 
-	@Test
-	public void copySessionWhenNotUsingDataSerialization() {
+    assertThat(lastAccessedTime).isNotNull();
 
-		assertThat(AbstractGemFireOperationsSessionRepository.isUsingDataSerialization()).isFalse();
+    session.setLastAccessedTime(lastAccessedTime.plus(Duration.ofSeconds(5)));
 
-		Session mockSession = mockSession();
+    assertThat(session.getLastAccessedTime()).isAfter(lastAccessedTime);
+    assertThat(session.hasDelta()).isTrue();
 
-		when(mockSession.getAttributeNames()).thenReturn(Collections.singleton("attributeOne"));
-		when(mockSession.getAttribute(eq("attributeOne"))).thenReturn("test");
+    session.commit();
 
-		GemFireSession<?> sessionCopy = GemFireSession.copy(mockSession);
+    assertThat(session.hasDelta()).isFalse();
+  }
 
-		assertThat(sessionCopy).isNotNull();
-		assertThat(sessionCopy).isNotInstanceOf(DeltaCapableGemFireSession.class);
-		assertThat(sessionCopy.getId()).isEqualTo(mockSession.getId());
-		assertThat(sessionCopy.getCreationTime()).isEqualTo(mockSession.getCreationTime());
-		assertThat(sessionCopy.hasDelta()).isTrue();
-		assertThat(sessionCopy.getLastAccessedTime()).isEqualTo(mockSession.getLastAccessedTime());
-		assertThat(sessionCopy.getMaxInactiveInterval()).isEqualTo(mockSession.getMaxInactiveInterval());
-		assertThat(sessionCopy.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(sessionCopy.<String>getAttribute("attributeOne")).isEqualTo("test");
+  @Test
+  public void sessionHasDeltaWhenSessionMaxInactiveIntervalChangesReturnsTrue() {
 
-		verify(mockSession, times(2)).getId();
-		verify(mockSession, times(2)).getCreationTime();
-		verify(mockSession, times(2)).getLastAccessedTime();
-		verify(mockSession, times(2)).getMaxInactiveInterval();
-		verify(mockSession, times(1)).getAttributeNames();
-		verify(mockSession, times(1)).getAttribute(eq("attributeOne"));
-	}
+    GemFireSession<?> session = newNonDirtyGemFireSession();
 
-	@Test
-	public void copySessionWhenUsingDataSerialization() {
+    assertThat(session).isNotNull();
+    assertThat(session.hasDelta()).isFalse();
 
-		this.sessionRepository.setUseDataSerialization(true);
+    Duration maxInactiveInterval = session.getMaxInactiveInterval();
 
-		assertThat(AbstractGemFireOperationsSessionRepository.isUsingDataSerialization()).isTrue();
+    assertThat(maxInactiveInterval).isNotNull();
 
-		Session mockSession = mockSession();
+    session.setMaxInactiveInterval(maxInactiveInterval.plus(Duration.ofSeconds(5)));
 
-		when(mockSession.getAttributeNames()).thenReturn(Collections.singleton("attributeOne"));
-		when(mockSession.getAttribute(eq("attributeOne"))).thenReturn("test");
+    assertThat(session.getMaxInactiveInterval()).isGreaterThan(maxInactiveInterval);
+    assertThat(session.hasDelta()).isTrue();
 
-		GemFireSession<?> sessionCopy = GemFireSession.copy(mockSession);
+    session.commit();
 
-		assertThat(sessionCopy).isInstanceOf(DeltaCapableGemFireSession.class);
-		assertThat(sessionCopy.getId()).isEqualTo(mockSession.getId());
-		assertThat(sessionCopy.getCreationTime()).isEqualTo(mockSession.getCreationTime());
-		assertThat(sessionCopy.hasDelta()).isTrue();
-		assertThat(sessionCopy.getLastAccessedTime()).isEqualTo(mockSession.getLastAccessedTime());
-		assertThat(sessionCopy.getMaxInactiveInterval()).isEqualTo(mockSession.getMaxInactiveInterval());
-		assertThat(sessionCopy.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(sessionCopy.<String>getAttribute("attributeOne")).isEqualTo("test");
+    assertThat(session.hasDelta()).isFalse();
+  }
 
-		verify(mockSession, times(2)).getId();
-		verify(mockSession, times(2)).getCreationTime();
-		verify(mockSession, times(2)).getLastAccessedTime();
-		verify(mockSession, times(2)).getMaxInactiveInterval();
-		verify(mockSession, times(1)).getAttributeNames();
-		verify(mockSession, times(1)).getAttribute(eq("attributeOne"));
-	}
+  @Test
+  public void sessionHasDeltaWhenSessionPrincipalNameChangesReturnsTrue() {
 
-	@Test
-	public void fromExistingGemFireSessionIsGemFireSession() {
+    GemFireSession<?> session = newNonDirtyGemFireSession();
 
-		GemFireSession<?> gemfireSession = GemFireSession.create();
+    assertThat(session).isNotNull();
+    assertThat(session.getPrincipalName()).isNull();
+    assertThat(session.hasDelta()).isFalse();
 
-		GemFireSession<?> fromGemFireSession = GemFireSession.from(gemfireSession);
+    session.setPrincipalName("jxblum");
 
-		assertThat(fromGemFireSession).isSameAs(gemfireSession);
-	}
+    assertThat(session.getPrincipalName()).isEqualTo("jxblum");
+    assertThat(session.hasDelta()).isTrue();
 
-	@Test
-	public void fromExistingSessionCopiesSession() {
+    session.commit();
 
-		Instant expectedCreationTime = Instant.ofEpochMilli(1L);
-		Instant expectedLastAccessedTime = Instant.ofEpochMilli(2L);
+    assertThat(session.hasDelta()).isFalse();
+  }
 
-		Duration expectedMaxInactiveInterval = Duration.ofSeconds(MAX_INACTIVE_INTERVAL_IN_SECONDS);
+  @Test
+  public void sessionHasDeltaWhenSessionIsDirtyAndAttributesAreNotModifiedOnSubsequentUpdatesReturnsTrue() {
 
-		Session mockSession = mockSession("4", expectedCreationTime.toEpochMilli(),
-			expectedLastAccessedTime.toEpochMilli(), MAX_INACTIVE_INTERVAL_IN_SECONDS);
+    GemFireSession<?> session = newNonDirtyGemFireSession();
 
-		when(mockSession.getAttributeNames()).thenReturn(Collections.emptySet());
+    assertThat(session).isNotNull();
+    assertThat(session.hasDelta()).isFalse();
 
-		GemFireSession<?> gemfireSession = GemFireSession.from(mockSession);
+    String previousSessionId = session.getId();
 
-		assertThat(gemfireSession).isNotNull();
-		assertThat(gemfireSession.getId()).isEqualTo("4");
-		assertThat(gemfireSession.getCreationTime()).isEqualTo(expectedCreationTime);
-		assertThat(gemfireSession.hasDelta()).isTrue();
-		assertThat(gemfireSession.getLastAccessedTime()).isEqualTo(expectedLastAccessedTime);
-		assertThat(gemfireSession.getMaxInactiveInterval()).isEqualTo(expectedMaxInactiveInterval);
-		assertThat(gemfireSession.getAttributes()).isNotNull();
-		assertThat(gemfireSession.getAttributes()).isEmpty();
+    Instant newLastAccessedTime = session.getLastAccessedTime().plusSeconds(5L);
 
-		verify(mockSession, times(1)).getId();
-		verify(mockSession, times(1)).getCreationTime();
-		verify(mockSession, times(1)).getLastAccessedTime();
-		verify(mockSession, times(1)).getMaxInactiveInterval();
-		verify(mockSession, times(1)).getAttributeNames();
-		verify(mockSession, never()).getAttribute(anyString());
-	}
+    Duration newMaxInactiveInterval = session.getMaxInactiveInterval().plusSeconds(5L);
 
-	@Test(expected = IllegalArgumentException.class)
-	public void fromNullSessionThrowsIllegalArgumentException() {
+    assertThat(session.changeSessionId()).isNotEqualTo(previousSessionId);
 
-		try {
-			GemFireSession.from(null);
-		}
-		catch (IllegalArgumentException expected) {
+    session.setAttribute("attributeOne", "testOne");
+    session.setLastAccessedTime(newLastAccessedTime);
+    session.setMaxInactiveInterval(newMaxInactiveInterval);
+    session.setPrincipalName("TestPrincipal");
 
-			assertThat(expected).hasMessage("Session is required");
-			assertThat(expected).hasNoCause();
+    assertThat(session.hasDelta()).isTrue();
 
-			throw expected;
-		}
-	}
+    session.setAttribute("attributeOne", "testOne");
+    session.setLastAccessedTime(newLastAccessedTime);
+    session.setMaxInactiveInterval(newMaxInactiveInterval);
+    session.setPrincipalName("TestPrincipal");
 
-	@Test
-	public void newSessionAttributesIsConfiguredCorrectly() {
+    assertThat(session.hasDelta()).isTrue();
+  }
 
-		GemFireSession<?> session = new GemFireSession<>();
+  @Test
+  public void sessionCompareTo() {
 
-		session.setIsDirtyPredicate(EqualsDirtyPredicate.INSTANCE);
+    Instant twoHoursAgo = Instant.now().minusMillis(TimeUnit.HOURS.toMillis(2));
 
-		assertThat(session.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
+    Session mockSession = mockSession("1", twoHoursAgo.toEpochMilli(), MAX_INACTIVE_INTERVAL_IN_SECONDS);
 
-		GemFireSessionAttributes sessionAttributes = session.newSessionAttributes(session);
+    GemFireSession<?> sessionOne = new GemFireSession<>(mockSession);
 
-		assertThat(sessionAttributes).isNotNull();
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
-		assertThat(sessionAttributes.getLock()).isSameAs(session);
-	}
+    GemFireSession<?> sessionTwo = new GemFireSession<>("2");
 
-	@Test
-	public void newDeltaCapableSessionAttributesIsConfiguredCorrectly() {
+    assertThat(sessionOne.getCreationTime()).isEqualTo(twoHoursAgo.truncatedTo(ChronoUnit.MILLIS));
+    assertThat(sessionTwo.getCreationTime().isAfter(twoHoursAgo)).isTrue();
+    assertThat(sessionOne.compareTo(sessionTwo)).isLessThan(0);
+    assertThat(sessionOne.compareTo(sessionOne)).isEqualTo(0);
+    assertThat(sessionTwo.compareTo(sessionOne)).isGreaterThan(0);
+  }
 
-		DeltaCapableGemFireSession session = new DeltaCapableGemFireSession();
+  @Test
+  @SuppressWarnings("all")
+  public void sessionEqualsDifferentLogicalSessionBasedOnId() {
 
-		session.setIsDirtyPredicate(IdentityEqualsDirtyPredicate.INSTANCE);
+    GemFireSession sessionOne = new GemFireSession("1");
 
-		assertThat(session.getIsDirtyPredicate()).isEqualTo(IdentityEqualsDirtyPredicate.INSTANCE);
+    sessionOne.setLastAccessedTime(Instant.ofEpochSecond(12345L));
+    sessionOne.setMaxInactiveInterval(Duration.ofSeconds(120L));
+    sessionOne.setPrincipalName("jxblum");
 
-		DeltaCapableGemFireSessionAttributes sessionAttributes = session.newSessionAttributes(session);
+    long timestamp = System.currentTimeMillis();
 
-		assertThat(sessionAttributes).isNotNull();
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(IdentityEqualsDirtyPredicate.INSTANCE);
-		assertThat(sessionAttributes.getLock()).isEqualTo(session);
-	}
+    while (System.currentTimeMillis() == timestamp) ;
 
-	@Test
-	public void changeSessionIdIsCorrect() {
+    GemFireSession sessionTwo = new GemFireSession("1");
 
-		GemFireSession<?> session = new GemFireSession<>();
+    sessionTwo.setLastAccessedTime(Instant.ofEpochSecond(67890L));
+    sessionTwo.setMaxInactiveInterval(Duration.ofSeconds(300L));
+    sessionTwo.setPrincipalName("rwinch");
 
-		String sessionId = session.getId();
+    assertThat(sessionTwo.getId().equals(sessionOne.getId())).isTrue();
+    assertThat(sessionTwo.getCreationTime()).isNotEqualTo(sessionOne.getCreationTime());
+    assertThat(sessionTwo.getLastAccessedTime()).isNotEqualTo(sessionOne.getLastAccessedTime());
+    assertThat(sessionTwo.getMaxInactiveInterval()).isNotEqualTo(sessionOne.getMaxInactiveInterval());
+    assertThat(sessionTwo.getPrincipalName()).isNotEqualTo(sessionOne.getPrincipalName());
+    assertThat(sessionOne.equals(sessionTwo)).isTrue();
+    assertThat(sessionTwo.equals(sessionOne)).isTrue();
+  }
 
-		assertThat(sessionId).isNotEmpty();
-		assertThat(session.changeSessionId()).isNotEmpty();
-		assertThat(session.getId()).isNotEqualTo(sessionId);
-	}
+  @Test
+  public void sessionNotEqualToDifferentSessionBasedOnId() {
 
-	@Test
-	public void setGetAndRemoveAttribute() {
+    GemFireSession sessionOne = new GemFireSession("1");
 
-		GemFireSession<?> session = GemFireSession.create();
+    sessionOne.setLastAccessedTime(Instant.ofEpochSecond(12345L));
+    sessionOne.setMaxInactiveInterval(Duration.ofSeconds(120L));
+    sessionOne.setPrincipalName("jxblum");
 
-		assertThat(session).isNotNull();
-		assertThat(session.getAttributeNames()).isEmpty();
+    GemFireSession sessionTwo = new GemFireSession(sessionOne);
 
-		session.setAttribute("attributeOne", "testOne");
+    sessionTwo.changeSessionId();
 
-		assertThat(session.getAttributeNames()).containsOnly("attributeOne");
-		assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(session.<String>getAttribute("attributeTwo")).isNull();
+    assertThat(sessionTwo.getId().equals(sessionOne.getId())).isFalse();
+    assertThat(sessionTwo.getCreationTime()).isEqualTo(sessionOne.getCreationTime());
+    assertThat(sessionTwo.getLastAccessedTime()).isEqualTo(sessionOne.getLastAccessedTime());
+    assertThat(sessionTwo.getMaxInactiveInterval()).isEqualTo(sessionOne.getMaxInactiveInterval());
+    assertThat(sessionTwo.getPrincipalName()).isEqualTo(sessionOne.getPrincipalName());
+    assertThat(sessionOne.equals(sessionTwo)).isFalse();
+    assertThat(sessionTwo.equals(sessionOne)).isFalse();
+  }
 
-		session.setAttribute("attributeTwo", "testTwo");
+  @Test
+  public void sessionHashCodeIsNotEqualToStringHashCode() {
 
-		assertThat(session.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
-		assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(session.<String>getAttribute("attributeTwo")).isEqualTo("testTwo");
+    GemFireSession session = new GemFireSession("1");
 
-		session.setAttribute("attributeTwo", null);
+    assertThat(session.getId()).isEqualTo("1");
+    assertThat(session.hashCode()).isNotEqualTo("1".hashCode());
+  }
 
-		assertThat(session.getAttributeNames()).containsOnly("attributeOne");
-		assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(session.<String>getAttribute("attributeTwo")).isNull();
+  @Test
+  public void sessionHashCodeWithEqualSessionsHaveSameHashCode() {
 
-		session.removeAttribute("attributeOne");
+    GemFireSession<?> sessionOne = new GemFireSession("1");
+    GemFireSession<?> sessionTwo = new GemFireSession(sessionOne);
 
-		assertThat(session.getAttributeNames()).isEmpty();
-		assertThat(session.<String>getAttribute("attributeOne")).isNull();
-		assertThat(session.<String>getAttribute("attributeTwo")).isNull();
-	}
+    assertThat(sessionOne).isNotSameAs(sessionTwo);
+    assertThat(sessionOne).isEqualTo(sessionTwo);
+    assertThat(sessionOne.hashCode()).isEqualTo(sessionTwo.hashCode());
+  }
 
-	@Test
-	public void isExpiredWhenMaxInactiveIntervalIsNegativeReturnsFalse() {
+  @Test
+  public void sessionHashCodeWithUnequalSessionsHaveDifferentHashCodes() {
 
-		Duration expectedMaxInactiveIntervalInSeconds = Duration.ofSeconds(-1);
+    GemFireSession<?> sessionOne = new GemFireSession("1");
+    GemFireSession<?> sessionTwo = new GemFireSession(sessionOne);
 
-		GemFireSession<?> session = GemFireSession.create()
-			.configureWith(expectedMaxInactiveIntervalInSeconds);
+    sessionTwo.changeSessionId();
 
-		assertThat(session).isNotNull();
-		assertThat(session.getMaxInactiveInterval()).isEqualTo(expectedMaxInactiveIntervalInSeconds);
-		assertThat(session.isExpired()).isFalse();
-	}
+    assertThat(sessionOne).isNotSameAs(sessionTwo);
+    assertThat(sessionOne).isNotEqualTo(sessionTwo);
+    assertThat(sessionOne.hashCode()).isNotEqualTo(sessionTwo.hashCode());
+  }
 
-	@Test
-	public void isExpiredWhenMaxInactiveIntervalIsNullReturnsFalse() {
+  @Test
+  @SuppressWarnings("unchecked")
+  public void sessionToStringContainsId() {
 
-		GemFireSession<?> session = GemFireSession.create();
+    Session mockSession = mockSession();
 
-		assertThat(session).isNotNull();
+    GemFireSession session = GemFireSession.from(mockSession);
 
-		session.setMaxInactiveInterval(null);
+    assertThat(session).isNotNull();
+    assertThat(session.getId()).isEqualTo(mockSession.getId());
+    assertThat(session.toString()).startsWith(String.format("{ @type = %1$s, id = %2$s",
+        session.getClass().getName(), session.getId()));
+  }
 
-		assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
-		assertThat(session.isExpired()).isFalse();
-	}
+  @Test
+  public void sessionAttributesFromMap() {
 
-	@Test
-	public void isExpiredWhenMaxInactiveIntervalIsZeroReturnsFalse() {
+    Map<String, Object> source = new HashMap<>();
 
-		GemFireSession<?> session = GemFireSession.create();
+    source.put("attributeOne", "testOne");
+    source.put("attributeTwo", "testTwo");
 
-		assertThat(session).isNotNull();
-		assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
-		assertThat(session.isExpired()).isFalse();
-	}
+    GemFireSessionAttributes target = new GemFireSessionAttributes();
 
-	@Test
-	public void isExpiredWhenSessionIsActiveReturnsFalse() {
+    assertThat(target).isEmpty();
 
-		long expectedMaxInactiveIntervalInSeconds = TimeUnit.HOURS.toSeconds(2);
+    target.from(source);
 
-		GemFireSession<?> session = GemFireSession.create()
-			.configureWith(Duration.ofSeconds(expectedMaxInactiveIntervalInSeconds));
+    assertThat(target).hasSize(2);
+    assertThat(target.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
+    assertThat(target.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(target.<String>getAttribute("attributeTwo")).isEqualTo("testTwo");
+  }
 
-		assertThat(session).isNotNull();
-		assertThat(session.getMaxInactiveInterval())
-			.isEqualTo(Duration.ofSeconds(expectedMaxInactiveIntervalInSeconds));
+  @Test
+  public void sessionAttributesFromSession() {
 
-		Instant now = Instant.now();
+    Session mockSession = mock(Session.class);
 
-		session.setLastAccessedTime(now);
+    when(mockSession.getAttributeNames()).thenReturn(asSet("attributeOne", "attributeTwo"));
+    when(mockSession.getAttribute(eq("attributeOne"))).thenReturn("testOne");
+    when(mockSession.getAttribute(eq("attributeTwo"))).thenReturn("testTwo");
 
-		assertThat(session.getLastAccessedTime()).isEqualTo(now);
-		assertThat(session.isExpired()).isFalse();
-	}
+    GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
 
-	@Test
-	public void isExpiredWhenSessionIsInactiveReturnsTrue() {
+    assertThat(sessionAttributes).isEmpty();
 
-		Duration maxInactiveInterval = Duration.ofMillis(1);
+    sessionAttributes.from(mockSession);
 
-		GemFireSession<?> session = GemFireSession.create()
-			.configureWith(maxInactiveInterval);
+    assertThat(sessionAttributes).hasSize(2);
+    assertThat(sessionAttributes.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(sessionAttributes.<String>getAttribute("attributeTwo")).isEqualTo("testTwo");
 
-		assertThat(session).isNotNull();
-		assertThat(session.getMaxInactiveInterval()).isEqualTo(maxInactiveInterval);
+    verify(mockSession, times(1)).getAttributeNames();
+    verify(mockSession, times(1)).getAttribute(eq("attributeOne"));
+    verify(mockSession, times(1)).getAttribute(eq("attributeTwo"));
+  }
 
-		long diff;
+  @Test
+  public void sessionAttributesFromSessionAttributes() {
 
-		do {
-			diff = System.currentTimeMillis() - session.getLastAccessedTime().toEpochMilli();
-		}
-		while (diff < maxInactiveInterval.toMillis() + 1);
+    GemFireSessionAttributes source = new GemFireSessionAttributes();
 
-		assertThat(session.isExpired()).isTrue();
-	}
+    source.setAttribute("attributeOne", "testOne");
+    source.setAttribute("attributeTwo", "testTwo");
 
-	@Test
-	public void setAndGetGemFireSessionIsDirtyPredicate() {
+    GemFireSessionAttributes target = new GemFireSessionAttributes();
 
-		GemFireSession<?> session = GemFireSession.create();
+    assertThat(target).isEmpty();
 
-		assertThat(session).isNotNull();
-		assertThat(session.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    target.from(source);
 
-		IsDirtyPredicate mockDirtyPredicate = mock(IsDirtyPredicate.class);
+    assertThat(target).hasSize(2);
+    assertThat(target.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
+    assertThat(target.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(target.<String>getAttribute("attributeTwo")).isEqualTo("testTwo");
+  }
 
-		session.setIsDirtyPredicate(mockDirtyPredicate);
+  @Test
+  public void setAndGetGemFireSessionAttributesIsDirtyPredicate() {
 
-		assertThat(session.getIsDirtyPredicate()).isEqualTo(mockDirtyPredicate);
+    GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
 
-		session.setIsDirtyPredicate(null);
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
 
-		assertThat(session.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    IsDirtyPredicate mockDirtyPredicate = mock(IsDirtyPredicate.class);
 
-		session.setIsDirtyPredicate(EqualsDirtyPredicate.INSTANCE);
+    sessionAttributes.setIsDirtyPredicate(mockDirtyPredicate);
 
-		assertThat(session.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
-	}
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(mockDirtyPredicate);
 
-	@Test
-	public void setAndGetLastAccessedTime() {
+    sessionAttributes.setIsDirtyPredicate(null);
 
-		Instant inTheBeginning = Instant.now();
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
 
-		GemFireSession<?> session = GemFireSession.create();
+    sessionAttributes.setIsDirtyPredicate(EqualsDirtyPredicate.INSTANCE);
 
-		assertThat(session).isNotNull();
-		assertThat(session.getLastAccessedTime()).isAfterOrEqualTo(inTheBeginning);
-		assertThat(session.getLastAccessedTime()).isBeforeOrEqualTo(Instant.now());
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
+  }
 
-		Instant lastAccessedTime = session.getLastAccessedTime();
+  @Test
+  public void sessionAttributesToDelta() throws Exception {
 
-		session.setLastAccessedTime(Instant.now());
+    AtomicInteger count = new AtomicInteger(0);
 
-		assertThat(session.getLastAccessedTime()).isAfterOrEqualTo(lastAccessedTime);
-		assertThat(session.getLastAccessedTime()).isBeforeOrEqualTo(Instant.now());
+    DataOutput mockDataOutput = mock(DataOutput.class);
 
-		lastAccessedTime = session.getLastAccessedTime();
+    DeltaCapableGemFireSessionAttributes sessionAttributes = spy(new DeltaCapableGemFireSessionAttributes());
 
-		session.setLastAccessedTime(lastAccessedTime.plusSeconds(5));
+    doAnswer(invocation -> {
 
-		assertThat(session.getLastAccessedTime()).isAfter(lastAccessedTime);
-		assertThat(session.getLastAccessedTime()).isEqualTo(lastAccessedTime.plusSeconds(5));
-	}
+      assertThat(Arrays.asList("testOne", "testTwo", "testThree").get(count.getAndIncrement()))
+          .isEqualTo(invocation.getArgument(0));
 
-	@Test
-	public void setLastAccessedTimeInThePast() {
+      assertThat(invocation.<DataOutput>getArgument(1)).isSameAs(mockDataOutput);
 
-		GemFireSession<?> session = GemFireSession.create();
+      return null;
 
-		assertThat(session).isNotNull();
+    }).when(sessionAttributes).writeObject(any(), isA(DataOutput.class));
 
-		Instant lastAccessedTime = session.getLastAccessedTime();
+    sessionAttributes.setAttribute("attributeOne", "testOne");
+    sessionAttributes.setAttribute("attributeTwo", "testTwo");
 
-		assertThat(lastAccessedTime).isNotNull();
-		assertThat(lastAccessedTime).isBeforeOrEqualTo(Instant.now());
+    assertThat(sessionAttributes.hasDelta()).isTrue();
 
-		session.setLastAccessedTime(lastAccessedTime.minusMillis(1));
+    sessionAttributes.toDelta(mockDataOutput);
 
-		assertThat(session.getLastAccessedTime()).isEqualTo(lastAccessedTime.minusMillis(1));
-		assertThat(session.getLastAccessedTime()).isBefore(Instant.now());
+    assertThat(sessionAttributes.hasDelta()).isTrue();
 
-		session.setLastAccessedTime(lastAccessedTime.minusSeconds(300));
+    verify(mockDataOutput, times(1)).writeInt(eq(2));
+    verify(mockDataOutput, times(1)).writeUTF("attributeOne");
+    verify(mockDataOutput, times(1)).writeUTF("attributeTwo");
+    reset(mockDataOutput);
 
-		assertThat(session.getLastAccessedTime()).isEqualTo(lastAccessedTime.minusSeconds(300));
-		assertThat(session.getLastAccessedTime()).isBefore(Instant.now());
-	}
+    sessionAttributes.commit();
 
-	@Test
-	public void setLastAccessedTimeCannotBeSetToNull() {
+    assertThat(sessionAttributes.hasDelta()).isFalse();
 
-		GemFireSession<?> session = GemFireSession.create();
+    sessionAttributes.toDelta(mockDataOutput);
 
-		assertThat(session).isNotNull();
+    verify(mockDataOutput, times(1)).writeInt(eq(0));
+    verify(mockDataOutput, never()).writeUTF(any(String.class));
+    reset(mockDataOutput);
 
-		Instant lastAccessedTime = session.getLastAccessedTime();
+    sessionAttributes.setAttribute("attributeTwo", "testThree");
 
-		assertThat(lastAccessedTime).isNotNull();
-		assertThat(lastAccessedTime).isBeforeOrEqualTo(Instant.now());
+    assertThat(sessionAttributes.hasDelta()).isTrue();
 
-		session.setLastAccessedTime(null);
+    sessionAttributes.toDelta(mockDataOutput);
 
-		assertThat(session.getLastAccessedTime()).isEqualTo(lastAccessedTime);
-		assertThat(lastAccessedTime).isBeforeOrEqualTo(Instant.now());
-	}
+    assertThat(sessionAttributes.hasDelta()).isTrue();
 
-	@Test
-	public void setAndGetPrincipalName() {
+    verify(mockDataOutput, times(1)).writeInt(eq(1));
+    verify(mockDataOutput, times(1)).writeUTF(eq("attributeTwo"));
+  }
 
-		GemFireSession<?> session = GemFireSession.create();
+  @Test
+  public void sessionAttributesFromDelta() throws Exception {
 
-		assertThat(session).isNotNull();
-		assertThat(session.getPrincipalName()).isNull();
+    DataInput mockDataInput = mock(DataInput.class);
 
-		session.setPrincipalName("jxblum");
+    when(mockDataInput.readInt()).thenReturn(2);
+    when(mockDataInput.readUTF()).thenReturn("attributeOne").thenReturn("attributeTwo");
 
-		assertThat(session.getPrincipalName()).isEqualTo("jxblum");
-		assertThat(session.getAttributeNames()).isEqualTo(asSet(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME));
-		assertThat(session.<String>getAttribute(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME)).isEqualTo("jxblum");
+    DeltaCapableGemFireSessionAttributes sessionAttributes = spy(new DeltaCapableGemFireSessionAttributes());
 
-		session.setAttribute(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME, "rwinch");
+    AtomicInteger count = new AtomicInteger(0);
 
-		assertThat(session.getAttributeNames()).isEqualTo(asSet(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME));
-		assertThat(session.<String>getAttribute(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME)).isEqualTo("rwinch");
-		assertThat(session.getPrincipalName()).isEqualTo("rwinch");
+    doAnswer(invocation -> {
 
-		session.removeAttribute(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME);
+      assertThat(invocation.<DataInput>getArgument(0)).isSameAs(mockDataInput);
 
-		assertThat(session.getPrincipalName()).isNull();
-	}
+      return Arrays.asList("testOne", "testTwo", "testThree").get(count.getAndIncrement());
 
-	@Test
-	public void configuresIsDirtyPredicateReturnsGemFireSession() {
+    }).when(sessionAttributes).readObject(any(DataInput.class));
 
-		GemFireSession<?> session = new GemFireSession<>();
+    sessionAttributes.setAttribute("attributeOne", "one");
+    sessionAttributes.setAttribute("attributeTwo", "two");
 
-		assertThat(session.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
-		assertThat(session.configureWith(EqualsDirtyPredicate.INSTANCE)).isSameAs(session);
-		assertThat(session.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
-	}
+    assertThat(sessionAttributes.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("one");
+    assertThat(sessionAttributes.<String>getAttribute("attributeTwo")).isEqualTo("two");
+    assertThat(sessionAttributes.hasDelta()).isTrue();
 
-	@Test
-	public void configuresMaxInactiveIntervalReturnsGemFireSession() {
+    sessionAttributes.fromDelta(mockDataInput);
 
-		GemFireSession<?> session = new GemFireSession<>();
+    assertThat(sessionAttributes.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(sessionAttributes.<String>getAttribute("attributeTwo")).isEqualTo("testTwo");
+    assertThat(sessionAttributes.hasDelta()).isFalse();
 
-		assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
-		assertThat(session.configureWith(Duration.ofSeconds(1))).isSameAs(session);
-		assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ofSeconds(1));
-	}
+    verify(mockDataInput, times(1)).readInt();
+    verify(mockDataInput, times(2)).readUTF();
 
-	@Test
-	public void sessionToDelta() throws Exception {
+    reset(mockDataInput);
 
-		DataOutput mockDataOutput = mock(DataOutput.class);
+    when(mockDataInput.readInt()).thenReturn(1);
+    when(mockDataInput.readUTF()).thenReturn("attributeTwo");
 
-		DeltaCapableGemFireSession session = new DeltaCapableGemFireSession();
+    sessionAttributes.setAttribute("attributeOne", "one");
+    sessionAttributes.setAttribute("attributeTwo", "two");
 
-		Instant lastAccessedTime = session.getLastAccessedTime().plusSeconds(1);
+    assertThat(sessionAttributes.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("one");
+    assertThat(sessionAttributes.<String>getAttribute("attributeTwo")).isEqualTo("two");
+    assertThat(sessionAttributes.hasDelta()).isTrue();
 
-		session.setLastAccessedTime(lastAccessedTime);
-		session.setMaxInactiveInterval(Duration.ofSeconds(300L));
-		session.setAttribute("attributeOne", "test");
+    sessionAttributes.fromDelta(mockDataInput);
 
-		assertThat(session.hasDelta()).isTrue();
+    assertThat(sessionAttributes.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("one");
+    assertThat(sessionAttributes.<String>getAttribute("attributeTwo")).isEqualTo("testThree");
+    assertThat(sessionAttributes.hasDelta()).isTrue();
 
-		session.toDelta(mockDataOutput);
+    verify(mockDataInput, times(1)).readInt();
+    verify(mockDataInput, times(1)).readUTF();
+  }
 
-		assertThat(session.hasDelta()).isTrue();
+  @Test
+  public void sessionAttributesHasDeltaReturnsFalse() {
+    assertThat(new GemFireSessionAttributes().hasDelta()).isFalse();
+  }
 
-		verify(mockDataOutput, times(1)).writeUTF(eq(session.getId()));
-		verify(mockDataOutput, times(1)).writeLong(eq(lastAccessedTime.toEpochMilli()));
-		verify(mockDataOutput, times(1)).writeLong(eq(300L));
-		verify(mockDataOutput, times(1)).writeInt(eq(1));
-		verify(mockDataOutput, times(1)).writeUTF(eq("attributeOne"));
-	}
+  @Test
+  public void sessionAttributesHasDeltaReturnsTrue() {
 
-	@Test
-	public void sessionFromDelta() throws Exception {
+    GemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
 
-		DataInput mockDataInput = mock(DataInput.class);
+    assertThat(sessionAttributes.hasDelta()).isFalse();
 
-		Instant lastAccessedTime = Instant.now().plusSeconds(5);
+    sessionAttributes.setAttribute("attributeOne", "testOne");
 
-		when(mockDataInput.readUTF()).thenReturn("1");
-		when(mockDataInput.readLong()).thenReturn(lastAccessedTime.toEpochMilli()).thenReturn(300L);
-		when(mockDataInput.readInt()).thenReturn(0);
+    assertThat(sessionAttributes).hasSize(1);
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(sessionAttributes.hasDelta()).isTrue();
 
-		DeltaCapableGemFireSession session = new DeltaCapableGemFireSession();
+    sessionAttributes.setAttribute("attributeOne", "testOne");
 
-		Instant creationTime = session.getCreationTime();
+    assertThat(sessionAttributes).hasSize(1);
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(sessionAttributes.hasDelta()).isTrue();
 
-		session.fromDelta(mockDataInput);
+    sessionAttributes.commit();
 
-		assertThat(session.getId()).isEqualTo("1");
-		assertThat(session.getCreationTime()).isEqualTo(creationTime);
-		assertThat(session.getLastAccessedTime()).isEqualTo(lastAccessedTime);
-		assertThat(session.hasDelta()).isTrue();
-		assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ofSeconds(300L));
-		assertThat(session.getAttributeNames().isEmpty()).isTrue();
+    assertThat(sessionAttributes.hasDelta()).isFalse();
 
-		verify(mockDataInput, times(1)).readUTF();
-		verify(mockDataInput, times(2)).readLong();
-		verify(mockDataInput, times(1)).readInt();
-	}
+    sessionAttributes.setAttribute("attributeTwo", "testTwo");
 
-	@Test
-	public void sessionHasDeltaWithExistingSessionReturnsTrue() {
+    assertThat(sessionAttributes).hasSize(2);
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(sessionAttributes.<String>getAttribute("attributeTwo")).isEqualTo("testTwo");
+    assertThat(sessionAttributes.hasDelta()).isTrue();
+  }
 
-		GemFireSession<?> session = GemFireSession.from(mockSession());
+  @Test
+  public void sessionAttributesHasDeltaWhenSetAddsAttributeReturnsTrue() {
 
-		assertThat(session).isNotNull();
-		assertThat(session.hasDelta()).isTrue();
-	}
+    GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
 
-	@Test
-	public void sessionHasDeltaWithNewSessionReturnsTrue() {
+    assertThat(sessionAttributes.getAttributeNames()).isEmpty();
+    assertThat(sessionAttributes.hasDelta()).isFalse();
 
-		GemFireSession<?> session = GemFireSession.create();
+    sessionAttributes.setAttribute("attributeOne", "testOne");
 
-		assertThat(session).isNotNull();
-		assertThat(session.hasDelta()).isTrue();
-	}
+    // Set attribute to the same value again to make sure it does not clear the dirty bit
+    sessionAttributes.setAttribute("attributeOne", "testOne");
 
-	@Test
-	public void sessionHasDeltaWhenSessionIsNotDirtyReturnsFalse() {
-		assertThat(newNonDirtyGemFireSession().hasDelta()).isFalse();
-	}
+    assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(sessionAttributes.hasDelta()).isTrue();
 
-	@Test
-	public void sessionHasDeltaWhenSessionAttributeIsAddedReturnsTrue() {
+    sessionAttributes.commit();
 
-		GemFireSession<?> session = newNonDirtyGemFireSession();
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+  }
 
-		assertThat(session).isNotNull();
-		assertThat(session.getAttributeNames()).isEmpty();
-		assertThat(session.hasDelta()).isFalse();
+  @Test
+  public void sessionAttributesHasDeltaWhenSetDoesNotModifyAttributeReturnsTrue() {
 
-		session.setAttribute("attributeOne", "one");
+    GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
 
-		assertThat(session.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("one");
-		assertThat(session.hasDelta()).isTrue();
+    sessionAttributes.from(Collections.singletonMap("attributeOne", "testOne"));
+    sessionAttributes.commit();
 
-		session.commit();
+    assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(sessionAttributes.hasDelta()).isFalse();
 
-		assertThat(session.hasDelta()).isFalse();
-	}
+    sessionAttributes.setAttribute("attributeOne", "testOne");
 
-	@Test
-	public void sessionHasDeltaWhenSessionAttributeIsRemovedReturnsTrue() {
+    assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(sessionAttributes.hasDelta()).isTrue();
 
-		GemFireSession<?> session = GemFireSession.create();
+    sessionAttributes.commit();
 
-		assertThat(session).isNotNull();
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+  }
 
-		session.setAttribute("attributeOne", "one");
-		session.commit();
+  @Test
+  public void sessionAttributesHasDeltaWhenSetModifiesAttributeReturnsTrue() {
 
-		assertThat(session.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("one");
-		assertThat(session.hasDelta()).isFalse();
+    GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
 
-		session.removeAttribute("attributeOne");
+    sessionAttributes.from(Collections.singletonMap("attributeOne", "testOne"));
+    sessionAttributes.commit();
 
-		assertThat(session.getAttributeNames()).isEmpty();
-		assertThat(session.<String>getAttribute("attributeOne")).isNull();
-		assertThat(session.hasDelta()).isTrue();
+    assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(sessionAttributes.hasDelta()).isFalse();
 
-		session.commit();
+    sessionAttributes.setAttribute("attributeOne", "testTwo");
 
-		assertThat(session.hasDelta()).isFalse();
-	}
+    assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testTwo");
+    assertThat(sessionAttributes.hasDelta()).isTrue();
 
-	@Test
-	public void sessionHasDeltaWhenSessionAttributeIsUpdatedReturnsTrue() {
+    sessionAttributes.commit();
 
-		GemFireSession<?> session = GemFireSession.create();
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+  }
 
-		assertThat(session).isNotNull();
+  @Test
+  public void sessionAttributesHasDeltaWhenSetRemovesAttributeReturnsTrue() {
 
-		session.setAttribute("attributeOne", "one");
-		session.commit();
+    GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
 
-		assertThat(session.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("one");
-		assertThat(session.hasDelta()).isFalse();
+    sessionAttributes.from(Collections.singletonMap("attributeOne", "testOne"));
+    sessionAttributes.commit();
 
-		session.setAttribute("attributeOne", "two");
+    assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(sessionAttributes.hasDelta()).isFalse();
 
-		assertThat(session.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("two");
-		assertThat(session.hasDelta()).isTrue();
+    sessionAttributes.setAttribute("attributeOne", null);
 
-		session.commit();
+    assertThat(sessionAttributes.getAttributeNames()).isEmpty();
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isNull();
+    assertThat(sessionAttributes.hasDelta()).isTrue();
 
-		assertThat(session.hasDelta()).isFalse();
-	}
+    sessionAttributes.commit();
 
-	@Test
-	public void sessionHasDeltaWhenSessionIdChangesReturnsTrue() {
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+  }
 
-		GemFireSession<?> session = newNonDirtyGemFireSession();
+  @Test
+  public void sessionAttributesHasDeltaWhenRemovingExistingAttributeReturnsTrue() {
 
-		assertThat(session).isNotNull();
-		assertThat(session.getId()).isNotEmpty();
-		assertThat(session.hasDelta()).isFalse();
+    GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
 
-		String currentSessionId = session.getId();
+    sessionAttributes.from(Collections.singletonMap("attributeOne", "testOne"));
+    sessionAttributes.commit();
 
-		assertThat(currentSessionId).isNotEmpty();
-		assertThat(session.changeSessionId()).isNotEqualTo(currentSessionId);
-		assertThat(session.hasDelta()).isTrue();
+    assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(sessionAttributes.hasDelta()).isFalse();
 
-		session.commit();
+    sessionAttributes.removeAttribute("attributeOne");
 
-		assertThat(session.hasDelta()).isFalse();
-	}
+    // Remove attribute again to make sure it does not clear the dirty bit
+    sessionAttributes.removeAttribute("attributeOne");
 
-	@Test
-	public void sessionHasDeltaWhenSessionLastAccessedTimeChangesReturnsTrue() {
+    assertThat(sessionAttributes.getAttributeNames()).isEmpty();
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isNull();
+    assertThat(sessionAttributes.hasDelta()).isTrue();
 
-		GemFireSession<?> session = newNonDirtyGemFireSession();
+    sessionAttributes.commit();
 
-		assertThat(session).isNotNull();
-		assertThat(session.hasDelta()).isFalse();
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+  }
 
-		Instant lastAccessedTime = session.getLastAccessedTime();
+  @Test
+  public void sessionAttributesHasDeltaWhenRemovingNonExistingAttributeReturnsFalse() {
 
-		assertThat(lastAccessedTime).isNotNull();
+    GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
 
-		session.setLastAccessedTime(lastAccessedTime.plus(Duration.ofSeconds(5)));
+    sessionAttributes.from(Collections.singletonMap("attributeOne", "testOne"));
+    sessionAttributes.commit();
 
-		assertThat(session.getLastAccessedTime()).isAfter(lastAccessedTime);
-		assertThat(session.hasDelta()).isTrue();
+    assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(sessionAttributes.hasDelta()).isFalse();
 
-		session.commit();
+    sessionAttributes.removeAttribute("nonExistingAttribute");
 
-		assertThat(session.hasDelta()).isFalse();
-	}
+    assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
+    assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+  }
 
-	@Test
-	public void sessionHasDeltaWhenSessionMaxInactiveIntervalChangesReturnsTrue() {
+  @Test
+  public void sessionAttributesHasDeltaWhenRemovingNullReturnsFalse() {
 
-		GemFireSession<?> session = newNonDirtyGemFireSession();
+    GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
 
-		assertThat(session).isNotNull();
-		assertThat(session.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getAttributeNames()).isEmpty();
+    assertThat(sessionAttributes.hasDelta()).isFalse();
 
-		Duration maxInactiveInterval = session.getMaxInactiveInterval();
+    sessionAttributes.removeAttribute(null);
 
-		assertThat(maxInactiveInterval).isNotNull();
+    assertThat(sessionAttributes.getAttributeNames()).isEmpty();
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+  }
 
-		session.setMaxInactiveInterval(maxInactiveInterval.plus(Duration.ofSeconds(5)));
+  @Test
+  @SuppressWarnings("all")
+  public void deltaSessionAttributesHasDeltaAnytimeSetAttributeIsCalled() {
 
-		assertThat(session.getMaxInactiveInterval()).isGreaterThan(maxInactiveInterval);
-		assertThat(session.hasDelta()).isTrue();
+    DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
 
-		session.commit();
+    sessionAttributes.getMap().put("1", "TEST");
 
-		assertThat(session.hasDelta()).isFalse();
-	}
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    assertThat(sessionAttributes.<String>getAttribute("1")).isEqualTo("TEST");
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
 
-	@Test
-	public void sessionHasDeltaWhenSessionPrincipalNameChangesReturnsTrue() {
+    sessionAttributes.setAttribute("1", "TEST");
 
-		GemFireSession<?> session = newNonDirtyGemFireSession();
+    assertThat(sessionAttributes.<String>getAttribute("1")).isEqualTo("TEST");
+    assertThat(sessionAttributes.hasDelta()).isTrue();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("1");
 
-		assertThat(session).isNotNull();
-		assertThat(session.getPrincipalName()).isNull();
-		assertThat(session.hasDelta()).isFalse();
+    sessionAttributes.commit();
 
-		session.setPrincipalName("jxblum");
+    assertThat(sessionAttributes.<String>getAttribute("1")).isEqualTo("TEST");
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
 
-		assertThat(session.getPrincipalName()).isEqualTo("jxblum");
-		assertThat(session.hasDelta()).isTrue();
+    sessionAttributes.setAttribute("1", "TEST");
 
-		session.commit();
+    assertThat(sessionAttributes.<String>getAttribute("1")).isEqualTo("TEST");
+    assertThat(sessionAttributes.hasDelta()).isTrue();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("1");
+  }
 
-		assertThat(session.hasDelta()).isFalse();
-	}
+  @Test
+  public void deltaSessionAttributesHasDeltaWhenExistingDeltaObjectHasDeltaIsTrue() {
 
-	@Test
-	public void sessionHasDeltaWhenSessionIsDirtyAndAttributesAreNotModifiedOnSubsequentUpdatesReturnsTrue() {
+    Delta mockDelta = mock(Delta.class);
 
-		GemFireSession<?> session = newNonDirtyGemFireSession();
+    when(mockDelta.hasDelta()).thenReturn(true);
 
-		assertThat(session).isNotNull();
-		assertThat(session.hasDelta()).isFalse();
+    DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
 
-		String previousSessionId = session.getId();
+    sessionAttributes.getMap().put("1", mockDelta);
 
-		Instant newLastAccessedTime = session.getLastAccessedTime().plusSeconds(5L);
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
 
-		Duration newMaxInactiveInterval = session.getMaxInactiveInterval().plusSeconds(5L);
+    sessionAttributes.setAttribute("1", mockDelta);
 
-		assertThat(session.changeSessionId()).isNotEqualTo(previousSessionId);
+    assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
+    assertThat(sessionAttributes.hasDelta()).isTrue();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("1");
 
-		session.setAttribute("attributeOne", "testOne");
-		session.setLastAccessedTime(newLastAccessedTime);
-		session.setMaxInactiveInterval(newMaxInactiveInterval);
-		session.setPrincipalName("TestPrincipal");
+    verify(mockDelta, times(1)).hasDelta();
+  }
 
-		assertThat(session.hasDelta()).isTrue();
+  @Test
+  public void deltaSessionAttributesHasDeltaWhenExistingObjectIsReplacedByDeltaObject() {
 
-		session.setAttribute("attributeOne", "testOne");
-		session.setLastAccessedTime(newLastAccessedTime);
-		session.setMaxInactiveInterval(newMaxInactiveInterval);
-		session.setPrincipalName("TestPrincipal");
+    Delta mockDelta = mock(Delta.class, withSettings().lenient());
 
-		assertThat(session.hasDelta()).isTrue();
-	}
+    when(mockDelta.hasDelta()).thenReturn(false);
 
-	@Test
-	public void sessionCompareTo() {
+    DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
 
-		Instant twoHoursAgo = Instant.now().minusMillis(TimeUnit.HOURS.toMillis(2));
+    sessionAttributes.getMap().put("1", new Tombstone());
 
-		Session mockSession = mockSession("1", twoHoursAgo.toEpochMilli(), MAX_INACTIVE_INTERVAL_IN_SECONDS);
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    assertThat(sessionAttributes.<Tombstone>getAttribute("1")).isInstanceOf(Tombstone.class);
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
 
-		GemFireSession<?> sessionOne = new GemFireSession<>(mockSession);
+    sessionAttributes.setAttribute("1", mockDelta);
 
-		GemFireSession<?> sessionTwo = new GemFireSession<>("2");
+    assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
+    assertThat(sessionAttributes.hasDelta()).isTrue();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("1");
 
-		assertThat(sessionOne.getCreationTime()).isEqualTo(twoHoursAgo);
-		assertThat(sessionTwo.getCreationTime().isAfter(twoHoursAgo)).isTrue();
-		assertThat(sessionOne.compareTo(sessionTwo)).isLessThan(0);
-		assertThat(sessionOne.compareTo(sessionOne)).isEqualTo(0);
-		assertThat(sessionTwo.compareTo(sessionOne)).isGreaterThan(0);
-	}
+    verify(mockDelta, never()).hasDelta();
+  }
 
-	@Test
-	@SuppressWarnings("all")
-	public void sessionEqualsDifferentLogicalSessionBasedOnId() {
+  @Test
+  public void deltaSessionAttributesHasDeltaEvenWhenNonExistingDeltaObjectHasDeltaIsFalse() {
 
-		GemFireSession sessionOne = new GemFireSession("1");
+    Delta mockDelta = mock(Delta.class, withSettings().lenient());
 
-		sessionOne.setLastAccessedTime(Instant.ofEpochSecond(12345L));
-		sessionOne.setMaxInactiveInterval(Duration.ofSeconds(120L));
-		sessionOne.setPrincipalName("jxblum");
+    when(mockDelta.hasDelta()).thenReturn(false);
 
-		long timestamp = System.currentTimeMillis();
+    DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
 
-		while (System.currentTimeMillis() == timestamp);
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    assertThat(sessionAttributes.<Object>getAttribute("1")).isNull();
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
 
-		GemFireSession sessionTwo = new GemFireSession("1");
+    sessionAttributes.setAttribute("1", mockDelta);
 
-		sessionTwo.setLastAccessedTime(Instant.ofEpochSecond(67890L));
-		sessionTwo.setMaxInactiveInterval(Duration.ofSeconds(300L));
-		sessionTwo.setPrincipalName("rwinch");
+    assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
+    assertThat(sessionAttributes.hasDelta()).isTrue();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("1");
 
-		assertThat(sessionTwo.getId().equals(sessionOne.getId())).isTrue();
-		assertThat(sessionTwo.getCreationTime()).isNotEqualTo(sessionOne.getCreationTime());
-		assertThat(sessionTwo.getLastAccessedTime()).isNotEqualTo(sessionOne.getLastAccessedTime());
-		assertThat(sessionTwo.getMaxInactiveInterval()).isNotEqualTo(sessionOne.getMaxInactiveInterval());
-		assertThat(sessionTwo.getPrincipalName()).isNotEqualTo(sessionOne.getPrincipalName());
-		assertThat(sessionOne.equals(sessionTwo)).isTrue();
-		assertThat(sessionTwo.equals(sessionOne)).isTrue();
-	}
+    verify(mockDelta, never()).hasDelta();
+  }
 
-	@Test
-	public void sessionNotEqualToDifferentSessionBasedOnId() {
+  @Test
+  public void deltaSessionAttributesHasDeltaWhenExistingDeltaObjectIsRemoved() {
 
-		GemFireSession sessionOne = new GemFireSession("1");
+    Delta mockDelta = mock(Delta.class);
 
-		sessionOne.setLastAccessedTime(Instant.ofEpochSecond(12345L));
-		sessionOne.setMaxInactiveInterval(Duration.ofSeconds(120L));
-		sessionOne.setPrincipalName("jxblum");
+    DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
 
-		GemFireSession sessionTwo = new GemFireSession(sessionOne);
+    sessionAttributes.getMap().put("1", mockDelta);
 
-		sessionTwo.changeSessionId();
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
 
-		assertThat(sessionTwo.getId().equals(sessionOne.getId())).isFalse();
-		assertThat(sessionTwo.getCreationTime()).isEqualTo(sessionOne.getCreationTime());
-		assertThat(sessionTwo.getLastAccessedTime()).isEqualTo(sessionOne.getLastAccessedTime());
-		assertThat(sessionTwo.getMaxInactiveInterval()).isEqualTo(sessionOne.getMaxInactiveInterval());
-		assertThat(sessionTwo.getPrincipalName()).isEqualTo(sessionOne.getPrincipalName());
-		assertThat(sessionOne.equals(sessionTwo)).isFalse();
-		assertThat(sessionTwo.equals(sessionOne)).isFalse();
-	}
+    sessionAttributes.removeAttribute("1");
 
-	@Test
-	public void sessionHashCodeIsNotEqualToStringHashCode() {
+    assertThat(sessionAttributes.<Delta>getAttribute("1")).isNull();
+    assertThat(sessionAttributes.hasDelta()).isTrue();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("1");
 
-		GemFireSession session = new GemFireSession("1");
+    verify(mockDelta, never()).hasDelta();
+  }
 
-		assertThat(session.getId()).isEqualTo("1");
-		assertThat(session.hashCode()).isNotEqualTo("1".hashCode());
-	}
+  @Test
+  public void deltaSessionAttributesHasNoDeltaWhenExistingDeltaObjectHasDeltaIsFalse() {
 
-	@Test
-	public void sessionHashCodeWithEqualSessionsHaveSameHashCode() {
+    Delta mockDelta = mock(Delta.class);
 
-		GemFireSession<?> sessionOne = new GemFireSession("1");
-		GemFireSession<?> sessionTwo = new GemFireSession(sessionOne);
+    when(mockDelta.hasDelta()).thenReturn(false);
 
-		assertThat(sessionOne).isNotSameAs(sessionTwo);
-		assertThat(sessionOne).isEqualTo(sessionTwo);
-		assertThat(sessionOne.hashCode()).isEqualTo(sessionTwo.hashCode());
-	}
+    DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
 
-	@Test
-	public void sessionHashCodeWithUnequalSessionsHaveDifferentHashCodes() {
+    sessionAttributes.getMap().put("1", mockDelta);
 
-		GemFireSession<?> sessionOne = new GemFireSession("1");
-		GemFireSession<?> sessionTwo = new GemFireSession(sessionOne);
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
 
-		sessionTwo.changeSessionId();
+    sessionAttributes.setAttribute("1", mockDelta);
 
-		assertThat(sessionOne).isNotSameAs(sessionTwo);
-		assertThat(sessionOne).isNotEqualTo(sessionTwo);
-		assertThat(sessionOne.hashCode()).isNotEqualTo(sessionTwo.hashCode());
-	}
+    assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
 
-	@Test @SuppressWarnings("unchecked")
-	public void sessionToStringContainsId() {
+    verify(mockDelta, times(1)).hasDelta();
+  }
 
-		Session mockSession = mockSession();
+  @Test
+  public void deltaSessionAttributesAlwaysHasDeltaWhenIsDirtyPredicateAlwaysReturnsTrue() {
 
-		GemFireSession session = GemFireSession.from(mockSession);
+    Delta mockDelta = mock(Delta.class, withSettings().lenient());
 
-		assertThat(session).isNotNull();
-		assertThat(session.getId()).isEqualTo(mockSession.getId());
-		assertThat(session.toString()).startsWith(String.format("{ @type = %1$s, id = %2$s",
-			session.getClass().getName(), session.getId()));
-	}
+    when(mockDelta.hasDelta()).thenReturn(false);
 
-	@Test
-	public void sessionAttributesFromMap() {
+    DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
 
-		Map<String, Object> source = new HashMap<>();
+    sessionAttributes.setIsDirtyPredicate(IsDirtyPredicate.ALWAYS_DIRTY);
+    sessionAttributes.getMap().put("1", mockDelta);
 
-		source.put("attributeOne", "testOne");
-		source.put("attributeTwo", "testTwo");
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(IsDirtyPredicate.ALWAYS_DIRTY);
+    assertThat(sessionAttributes.getAttributeNames()).containsExactly("1");
+    assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
 
-		GemFireSessionAttributes target = new GemFireSessionAttributes();
+    sessionAttributes.setAttribute("1", mockDelta);
+    sessionAttributes.setAttribute("1", mockDelta);
+    sessionAttributes.setAttribute("1", mockDelta);
 
-		assertThat(target).isEmpty();
+    assertThat(sessionAttributes.getAttributeNames()).containsExactly("1");
+    assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
+    assertThat(sessionAttributes.hasDelta()).isTrue();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("1");
 
-		target.from(source);
+    verify(mockDelta, never()).hasDelta();
+  }
 
-		assertThat(target).hasSize(2);
-		assertThat(target.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
-		assertThat(target.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(target.<String>getAttribute("attributeTwo")).isEqualTo("testTwo");
-	}
+  @Test
+  public void deltaSessionAttributesNeverHasDeltaWhenIsDirtyPredicateAlwaysReturnsFalse() {
 
-	@Test
-	public void sessionAttributesFromSession() {
+    Delta mockDelta = mock(Delta.class, withSettings().lenient());
 
-		Session mockSession = mock(Session.class);
+    when(mockDelta.hasDelta()).thenReturn(true);
 
-		when(mockSession.getAttributeNames()).thenReturn(asSet("attributeOne", "attributeTwo"));
-		when(mockSession.getAttribute(eq("attributeOne"))).thenReturn("testOne");
-		when(mockSession.getAttribute(eq("attributeTwo"))).thenReturn("testTwo");
+    DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
 
-		GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
+    sessionAttributes.setIsDirtyPredicate(IsDirtyPredicate.NEVER_DIRTY);
 
-		assertThat(sessionAttributes).isEmpty();
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(IsDirtyPredicate.NEVER_DIRTY);
+    assertThat(sessionAttributes.getAttributeNames()).isEmpty();
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
 
-		sessionAttributes.from(mockSession);
+    sessionAttributes.setAttribute("1", "TEST");
+    sessionAttributes.setAttribute("2", mockDelta);
+    sessionAttributes.setAttribute("3", new Object());
 
-		assertThat(sessionAttributes).hasSize(2);
-		assertThat(sessionAttributes.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(sessionAttributes.<String>getAttribute("attributeTwo")).isEqualTo("testTwo");
+    assertThat(sessionAttributes.getAttributeNames()).containsOnly("1", "2", "3");
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
 
-		verify(mockSession, times(1)).getAttributeNames();
-		verify(mockSession, times(1)).getAttribute(eq("attributeOne"));
-		verify(mockSession, times(1)).getAttribute(eq("attributeTwo"));
-	}
+    verify(mockDelta, never()).hasDelta();
+  }
 
-	@Test
-	public void sessionAttributesFromSessionAttributes() {
+  @Test
+  public void deltaSessionAttributesOnlyHasDeltaWhenIsDirtyPredicateReturnsTrue() {
 
-		GemFireSessionAttributes source = new GemFireSessionAttributes();
+    Delta mockDelta = mock(Delta.class, withSettings().lenient());
 
-		source.setAttribute("attributeOne", "testOne");
-		source.setAttribute("attributeTwo", "testTwo");
+    when(mockDelta.hasDelta()).thenReturn(true);
 
-		GemFireSessionAttributes target = new GemFireSessionAttributes();
+    IsDirtyPredicate mockDirtyPredicate = mock(IsDirtyPredicate.class);
 
-		assertThat(target).isEmpty();
+    when(mockDirtyPredicate.isDirty(any(), any())).thenReturn(false).thenReturn(false).thenReturn(true);
 
-		target.from(source);
+    DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
 
-		assertThat(target).hasSize(2);
-		assertThat(target.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
-		assertThat(target.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(target.<String>getAttribute("attributeTwo")).isEqualTo("testTwo");
-	}
+    sessionAttributes.setIsDirtyPredicate(mockDirtyPredicate);
 
-	@Test
-	public void setAndGetGemFireSessionAttributesIsDirtyPredicate() {
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(mockDirtyPredicate);
+    assertThat(sessionAttributes.getAttributeNames()).isEmpty();
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
 
-		GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
+    sessionAttributes.setAttribute("1", mockDelta);
 
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    assertThat(sessionAttributes.getAttributeNames()).containsExactly("1");
+    assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
 
-		IsDirtyPredicate mockDirtyPredicate = mock(IsDirtyPredicate.class);
+    sessionAttributes.setAttribute("2", "TEST");
 
-		sessionAttributes.setIsDirtyPredicate(mockDirtyPredicate);
+    assertThat(sessionAttributes.getAttributeNames()).containsOnly("1", "2");
+    assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
+    assertThat(sessionAttributes.<String>getAttribute("2")).isEqualTo("TEST");
+    assertThat(sessionAttributes.hasDelta()).isFalse();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
 
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(mockDirtyPredicate);
+    sessionAttributes.setAttribute("2", "TEST");
 
-		sessionAttributes.setIsDirtyPredicate(null);
+    assertThat(sessionAttributes.getAttributeNames()).containsOnly("1", "2");
+    assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
+    assertThat(sessionAttributes.<String>getAttribute("2")).isEqualTo("TEST");
+    assertThat(sessionAttributes.hasDelta()).isTrue();
+    assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("2");
 
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    verify(mockDelta, never()).hasDelta();
+    verify(mockDirtyPredicate, times(1)).isDirty(eq(null), eq(mockDelta));
+    verify(mockDirtyPredicate, times(1)).isDirty(eq(null), eq("TEST"));
+    verify(mockDirtyPredicate, times(1)).isDirty(eq("TEST"), eq("TEST"));
+  }
 
-		sessionAttributes.setIsDirtyPredicate(EqualsDirtyPredicate.INSTANCE);
+  @Test
+  public void sessionAttributesEntrySetIteratesAttributeNamesAndValues() {
 
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
-	}
+    GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
 
-	@Test
-	public void sessionAttributesToDelta() throws Exception {
+    sessionAttributes.setAttribute("keyOne", "valueOne");
+    sessionAttributes.setAttribute("keyTwo", "valueTwo");
 
-		AtomicInteger count = new AtomicInteger(0);
+    Set<Map.Entry<String, Object>> sessionAttributeEntries = sessionAttributes.entrySet();
 
-		DataOutput mockDataOutput = mock(DataOutput.class);
+    assertThat(sessionAttributeEntries).isNotNull();
+    assertThat(sessionAttributeEntries.size()).isEqualTo(2);
 
-		DeltaCapableGemFireSessionAttributes sessionAttributes = spy(new DeltaCapableGemFireSessionAttributes());
+    Set<String> expectedNames = new HashSet<>(asSet("keyOne", "keyTwo"));
+    Set<?> expectedValues = new HashSet<>(asSet("valueOne", "valueTwo"));
 
-		doAnswer(invocation -> {
+    for (Map.Entry<String, Object> entry : sessionAttributeEntries) {
+      expectedNames.remove(entry.getKey());
+      expectedValues.remove(entry.getValue());
+    }
 
-			assertThat(Arrays.asList("testOne", "testTwo", "testThree").get(count.getAndIncrement()))
-				.isEqualTo(invocation.getArgument(0));
+    assertThat(expectedNames.isEmpty()).isTrue();
+    assertThat(expectedValues.isEmpty()).isTrue();
 
-			assertThat(invocation.<DataOutput>getArgument(1)).isSameAs(mockDataOutput);
+    sessionAttributes.setAttribute("keyThree", "valueThree");
 
-			return null;
+    assertThat(sessionAttributeEntries.size()).isEqualTo(3);
 
-		}).when(sessionAttributes).writeObject(any(), isA(DataOutput.class));
+    expectedNames = new HashSet<>(asSet("keyOne", "keyTwo"));
+    expectedValues = new HashSet<>(asSet("valueOne", "valueTwo"));
 
-		sessionAttributes.setAttribute("attributeOne", "testOne");
-		sessionAttributes.setAttribute("attributeTwo", "testTwo");
+    for (Map.Entry<String, Object> entry : sessionAttributeEntries) {
+      expectedNames.remove(entry.getKey());
+      expectedValues.remove(entry.getValue());
+    }
 
-		assertThat(sessionAttributes.hasDelta()).isTrue();
+    assertThat(expectedNames.isEmpty()).isTrue();
+    assertThat(expectedValues.isEmpty()).isTrue();
 
-		sessionAttributes.toDelta(mockDataOutput);
+    sessionAttributes.removeAttribute("keyOne");
+    sessionAttributes.removeAttribute("keyTwo");
 
-		assertThat(sessionAttributes.hasDelta()).isTrue();
+    assertThat(sessionAttributeEntries.size()).isEqualTo(1);
 
-		verify(mockDataOutput, times(1)).writeInt(eq(2));
-		verify(mockDataOutput, times(1)).writeUTF("attributeOne");
-		verify(mockDataOutput, times(1)).writeUTF("attributeTwo");
-		reset(mockDataOutput);
+    Map.Entry<String, ?> entry = sessionAttributeEntries.iterator().next();
 
-		sessionAttributes.commit();
+    assertThat(entry.getKey()).isEqualTo("keyThree");
+    assertThat(entry.getValue()).isEqualTo("valueThree");
+  }
 
-		assertThat(sessionAttributes.hasDelta()).isFalse();
+  @Test
+  public void configuresIsDirtyPredicateReturnsGemFireSessionAttributes() {
 
-		sessionAttributes.toDelta(mockDataOutput);
+    GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
 
-		verify(mockDataOutput, times(1)).writeInt(eq(0));
-		verify(mockDataOutput, never()).writeUTF(any(String.class));
-		reset(mockDataOutput);
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
+    assertThat(sessionAttributes.<GemFireSessionAttributes>configureWith(EqualsDirtyPredicate.INSTANCE))
+        .isSameAs(sessionAttributes);
+    assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
+  }
 
-		sessionAttributes.setAttribute("attributeTwo", "testThree");
+  @Test
+  public void sessionWithAttributesAreThreadSafe() throws Throwable {
+    TestFramework.runOnce(new ThreadSafeSessionTestCase());
+  }
 
-		assertThat(sessionAttributes.hasDelta()).isTrue();
+  @SuppressWarnings("unused")
+  protected static final class ThreadSafeSessionTestCase extends MultithreadedTestCase {
 
-		sessionAttributes.toDelta(mockDataOutput);
+    private GemFireSession<?> session;
 
-		assertThat(sessionAttributes.hasDelta()).isTrue();
+    private final Instant beforeOrAtCreationTime = Instant.now();
 
-		verify(mockDataOutput, times(1)).writeInt(eq(1));
-		verify(mockDataOutput, times(1)).writeUTF(eq("attributeTwo"));
-	}
+    private volatile Instant expectedCreationTime;
 
-	@Test
-	public void sessionAttributesFromDelta() throws Exception {
+    @Override
+    public void initialize() {
 
-		DataInput mockDataInput = mock(DataInput.class);
+      this.session = new GemFireSession<>("1");
 
-		when(mockDataInput.readInt()).thenReturn(2);
-		when(mockDataInput.readUTF()).thenReturn("attributeOne").thenReturn("attributeTwo");
+      assertThat(this.session).isNotNull();
+      assertThat(this.session.getId()).isEqualTo("1");
+      assertThat(this.session.getCreationTime()).isAfterOrEqualTo(this.beforeOrAtCreationTime);
+      assertThat(this.session.getCreationTime()).isBeforeOrEqualTo(Instant.now());
+      assertThat(this.session.getLastAccessedTime()).isEqualTo(this.session.getCreationTime());
+      assertThat(this.session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
+      assertThat(this.session.getPrincipalName()).isNull();
+      assertThat(this.session.getAttributeNames()).isEmpty();
 
-		DeltaCapableGemFireSessionAttributes sessionAttributes = spy(new DeltaCapableGemFireSessionAttributes());
+      this.expectedCreationTime = this.session.getCreationTime();
 
-		AtomicInteger count = new AtomicInteger(0);
+      this.session.setLastAccessedTime(this.expectedCreationTime.plusSeconds(1));
+      this.session.setMaxInactiveInterval(Duration.ofSeconds(60L));
+      this.session.setPrincipalName("jxblum");
+    }
 
-		doAnswer(invocation -> {
+    public void thread1() {
 
-			assertThat(invocation.<DataInput>getArgument(0)).isSameAs(mockDataInput);
+      assertTick(0);
 
-			return Arrays.asList("testOne", "testTwo", "testThree").get(count.getAndIncrement());
+      Thread.currentThread().setName("HTTP Request Processing Thread 1");
 
-		}).when(sessionAttributes).readObject(any(DataInput.class));
+      assertThat(this.session).isNotNull();
+      assertThat(this.session.getId()).isEqualTo("1");
+      assertThat(this.session.getCreationTime()).isEqualTo(this.expectedCreationTime);
+      assertThat(this.session.getLastAccessedTime()).isEqualTo(this.expectedCreationTime.plusSeconds(1));
+      assertThat(this.session.getMaxInactiveInterval()).isEqualTo(Duration.ofSeconds(60L));
+      assertThat(this.session.getPrincipalName()).isEqualTo("jxblum");
+      assertThat(this.session.getAttributeNames()).hasSize(1);
+      assertThat(this.session.<String>getAttribute(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME))
+          .isEqualTo("jxblum");
 
-		sessionAttributes.setAttribute("attributeOne", "one");
-		sessionAttributes.setAttribute("attributeTwo", "two");
+      this.session.setAttribute("junk", "test");
+      this.session.setAttribute("tennis", "ping");
+      this.session.setLastAccessedTime(this.expectedCreationTime.plusSeconds(2));
+      this.session.setMaxInactiveInterval(Duration.ofSeconds(120L));
+      this.session.setPrincipalName("rwinch");
 
-		assertThat(sessionAttributes.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("one");
-		assertThat(sessionAttributes.<String>getAttribute("attributeTwo")).isEqualTo("two");
-		assertThat(sessionAttributes.hasDelta()).isTrue();
+      waitForTick(2);
 
-		sessionAttributes.fromDelta(mockDataInput);
+      assertThat(this.session).isNotNull();
+      assertThat(this.session.getId()).isEqualTo("1");
+      assertThat(this.session.getCreationTime()).isEqualTo(this.expectedCreationTime);
+      assertThat(this.session.getLastAccessedTime()).isEqualTo(this.expectedCreationTime.plusSeconds(3));
+      assertThat(this.session.getMaxInactiveInterval()).isEqualTo(Duration.ofSeconds(180L));
+      assertThat(this.session.getPrincipalName()).isEqualTo("rwinch");
+      assertThat(this.session.getAttributeNames()).hasSize(3);
+      assertThat(this.session.getAttributeNames()).containsAll(asSet("tennis", "greeting"));
+      assertThat(this.session.getAttributeNames().contains("junk")).isFalse();
+      assertThat(this.session.<String>getAttribute("junk")).isNull();
+      assertThat(this.session.<String>getAttribute("tennis")).isEqualTo("pong");
+      assertThat(this.session.<String>getAttribute("greeting")).isEqualTo("hello");
+    }
 
-		assertThat(sessionAttributes.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(sessionAttributes.<String>getAttribute("attributeTwo")).isEqualTo("testTwo");
-		assertThat(sessionAttributes.hasDelta()).isFalse();
+    public void thread2() {
 
-		verify(mockDataInput, times(1)).readInt();
-		verify(mockDataInput, times(2)).readUTF();
+      assertTick(0);
 
-		reset(mockDataInput);
+      Thread.currentThread().setName("HTTP Request Processing Thread 2");
 
-		when(mockDataInput.readInt()).thenReturn(1);
-		when(mockDataInput.readUTF()).thenReturn("attributeTwo");
+      waitForTick(1);
+      assertTick(1);
 
-		sessionAttributes.setAttribute("attributeOne", "one");
-		sessionAttributes.setAttribute("attributeTwo", "two");
+      assertThat(this.session).isNotNull();
+      assertThat(this.session.getId()).isEqualTo("1");
+      assertThat(this.session.getCreationTime()).isEqualTo(this.expectedCreationTime);
+      assertThat(this.session.getLastAccessedTime()).isEqualTo(this.expectedCreationTime.plusSeconds(2));
+      assertThat(this.session.getMaxInactiveInterval()).isEqualTo(Duration.ofSeconds(120L));
+      assertThat(this.session.getPrincipalName()).isEqualTo("rwinch");
+      assertThat(this.session.getAttributeNames()).hasSize(3);
+      assertThat(this.session.getAttributeNames()).containsAll(asSet("junk", "tennis"));
+      assertThat(this.session.<String>getAttribute("junk")).isEqualTo("test");
+      assertThat(this.session.<String>getAttribute("tennis")).isEqualTo("ping");
 
-		assertThat(sessionAttributes.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("one");
-		assertThat(sessionAttributes.<String>getAttribute("attributeTwo")).isEqualTo("two");
-		assertThat(sessionAttributes.hasDelta()).isTrue();
+      this.session.setAttribute("tennis", "pong");
+      this.session.setAttribute("greeting", "hello");
+      this.session.removeAttribute("junk");
+      this.session.setLastAccessedTime(this.expectedCreationTime.plusSeconds(3));
+      this.session.setMaxInactiveInterval(Duration.ofSeconds(180L));
+      this.session.setPrincipalName("rwinch");
+    }
 
-		sessionAttributes.fromDelta(mockDataInput);
+    @Override
+    public void finish() {
+      this.session = null;
+    }
+  }
 
-		assertThat(sessionAttributes.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("one");
-		assertThat(sessionAttributes.<String>getAttribute("attributeTwo")).isEqualTo("testThree");
-		assertThat(sessionAttributes.hasDelta()).isTrue();
+  class TestGemFireOperationsSessionRepository extends GemFireOperationsSessionRepositorySupport {
 
-		verify(mockDataInput, times(1)).readInt();
-		verify(mockDataInput, times(1)).readUTF();
-	}
+    TestGemFireOperationsSessionRepository(GemfireOperations gemfireOperations) {
+      super(gemfireOperations);
+    }
 
-	@Test
-	public void sessionAttributesHasDeltaReturnsFalse() {
-		assertThat(new GemFireSessionAttributes().hasDelta()).isFalse();
-	}
+    @Override
+    protected @Nullable Pool resolvePool(String name) {
+      return mockPool;
+    }
+  }
 
-	@Test
-	public void sessionAttributesHasDeltaReturnsTrue() {
-
-		GemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
-
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-
-		sessionAttributes.setAttribute("attributeOne", "testOne");
-
-		assertThat(sessionAttributes).hasSize(1);
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-
-		sessionAttributes.setAttribute("attributeOne", "testOne");
-
-		assertThat(sessionAttributes).hasSize(1);
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-
-		sessionAttributes.commit();
-
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-
-		sessionAttributes.setAttribute("attributeTwo", "testTwo");
-
-		assertThat(sessionAttributes).hasSize(2);
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(sessionAttributes.<String>getAttribute("attributeTwo")).isEqualTo("testTwo");
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-	}
-
-	@Test
-	public void sessionAttributesHasDeltaWhenSetAddsAttributeReturnsTrue() {
-
-		GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
-
-		assertThat(sessionAttributes.getAttributeNames()).isEmpty();
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-
-		sessionAttributes.setAttribute("attributeOne", "testOne");
-
-		// Set attribute to the same value again to make sure it does not clear the dirty bit
-		sessionAttributes.setAttribute("attributeOne", "testOne");
-
-		assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-
-		sessionAttributes.commit();
-
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-	}
-
-	@Test
-	public void sessionAttributesHasDeltaWhenSetDoesNotModifyAttributeReturnsTrue() {
-
-		GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
-
-		sessionAttributes.from(Collections.singletonMap("attributeOne", "testOne"));
-		sessionAttributes.commit();
-
-		assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-
-		sessionAttributes.setAttribute("attributeOne", "testOne");
-
-		assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-
-		sessionAttributes.commit();
-
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-	}
-
-	@Test
-	public void sessionAttributesHasDeltaWhenSetModifiesAttributeReturnsTrue() {
-
-		GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
-
-		sessionAttributes.from(Collections.singletonMap("attributeOne", "testOne"));
-		sessionAttributes.commit();
-
-		assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-
-		sessionAttributes.setAttribute("attributeOne", "testTwo");
-
-		assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testTwo");
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-
-		sessionAttributes.commit();
-
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-	}
-
-	@Test
-	public void sessionAttributesHasDeltaWhenSetRemovesAttributeReturnsTrue() {
-
-		GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
-
-		sessionAttributes.from(Collections.singletonMap("attributeOne", "testOne"));
-		sessionAttributes.commit();
-
-		assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-
-		sessionAttributes.setAttribute("attributeOne", null);
-
-		assertThat(sessionAttributes.getAttributeNames()).isEmpty();
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isNull();
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-
-		sessionAttributes.commit();
-
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-	}
-
-	@Test
-	public void sessionAttributesHasDeltaWhenRemovingExistingAttributeReturnsTrue() {
-
-		GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
-
-		sessionAttributes.from(Collections.singletonMap("attributeOne", "testOne"));
-		sessionAttributes.commit();
-
-		assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-
-		sessionAttributes.removeAttribute("attributeOne");
-
-		// Remove attribute again to make sure it does not clear the dirty bit
-		sessionAttributes.removeAttribute("attributeOne");
-
-		assertThat(sessionAttributes.getAttributeNames()).isEmpty();
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isNull();
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-
-		sessionAttributes.commit();
-
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-	}
-
-	@Test
-	public void sessionAttributesHasDeltaWhenRemovingNonExistingAttributeReturnsFalse() {
-
-		GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
-
-		sessionAttributes.from(Collections.singletonMap("attributeOne", "testOne"));
-		sessionAttributes.commit();
-
-		assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-
-		sessionAttributes.removeAttribute("nonExistingAttribute");
-
-		assertThat(sessionAttributes.getAttributeNames()).containsExactly("attributeOne");
-		assertThat(sessionAttributes.<String>getAttribute("attributeOne")).isEqualTo("testOne");
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-	}
-
-	@Test
-	public void sessionAttributesHasDeltaWhenRemovingNullReturnsFalse() {
-
-		GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
-
-		assertThat(sessionAttributes.getAttributeNames()).isEmpty();
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-
-		sessionAttributes.removeAttribute(null);
-
-		assertThat(sessionAttributes.getAttributeNames()).isEmpty();
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-	}
-
-	@Test
-	@SuppressWarnings("all")
-	public void deltaSessionAttributesHasDeltaAnytimeSetAttributeIsCalled() {
-
-		DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
-
-		sessionAttributes.getMap().put("1", "TEST");
-
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo("TEST");
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
-
-		sessionAttributes.setAttribute("1", "TEST");
-
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo("TEST");
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("1");
-
-		sessionAttributes.commit();
-
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo("TEST");
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
-
-		sessionAttributes.setAttribute("1", "TEST");
-
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo("TEST");
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("1");
-	}
-
-	@Test
-	public void deltaSessionAttributesHasDeltaWhenExistingDeltaObjectHasDeltaIsTrue() {
-
-		Delta mockDelta = mock(Delta.class);
-
-		when(mockDelta.hasDelta()).thenReturn(true);
-
-		DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
-
-		sessionAttributes.getMap().put("1", mockDelta);
-
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
-
-		sessionAttributes.setAttribute("1", mockDelta);
-
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("1");
-
-		verify(mockDelta, times(1)).hasDelta();
-	}
-
-	@Test
-	public void deltaSessionAttributesHasDeltaWhenExistingObjectIsReplacedByDeltaObject() {
-
-		Delta mockDelta = mock(Delta.class, withSettings().lenient());
-
-		when(mockDelta.hasDelta()).thenReturn(false);
-
-		DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
-
-		sessionAttributes.getMap().put("1", new Tombstone());
-
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
-		assertThat(sessionAttributes.<Tombstone>getAttribute("1")).isInstanceOf(Tombstone.class);
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
-
-		sessionAttributes.setAttribute("1", mockDelta);
-
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("1");
-
-		verify(mockDelta, never()).hasDelta();
-	}
-
-	@Test
-	public void deltaSessionAttributesHasDeltaEvenWhenNonExistingDeltaObjectHasDeltaIsFalse() {
-
-		Delta mockDelta = mock(Delta.class, withSettings().lenient());
-
-		when(mockDelta.hasDelta()).thenReturn(false);
-
-		DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
-
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
-		assertThat(sessionAttributes.<Object>getAttribute("1")).isNull();
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
-
-		sessionAttributes.setAttribute("1", mockDelta);
-
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("1");
-
-		verify(mockDelta, never()).hasDelta();
-	}
-
-	@Test
-	public void deltaSessionAttributesHasDeltaWhenExistingDeltaObjectIsRemoved() {
-
-		Delta mockDelta = mock(Delta.class);
-
-		DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
-
-		sessionAttributes.getMap().put("1", mockDelta);
-
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
-
-		sessionAttributes.removeAttribute("1");
-
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isNull();
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("1");
-
-		verify(mockDelta, never()).hasDelta();
-	}
-
-	@Test
-	public void deltaSessionAttributesHasNoDeltaWhenExistingDeltaObjectHasDeltaIsFalse() {
-
-		Delta mockDelta = mock(Delta.class);
-
-		when(mockDelta.hasDelta()).thenReturn(false);
-
-		DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
-
-		sessionAttributes.getMap().put("1", mockDelta);
-
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
-
-		sessionAttributes.setAttribute("1", mockDelta);
-
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
-
-		verify(mockDelta, times(1)).hasDelta();
-	}
-
-	@Test
-	public void deltaSessionAttributesAlwaysHasDeltaWhenIsDirtyPredicateAlwaysReturnsTrue() {
-
-		Delta mockDelta = mock(Delta.class, withSettings().lenient());
-
-		when(mockDelta.hasDelta()).thenReturn(false);
-
-		DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
-
-		sessionAttributes.setIsDirtyPredicate(IsDirtyPredicate.ALWAYS_DIRTY);
-		sessionAttributes.getMap().put("1", mockDelta);
-
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(IsDirtyPredicate.ALWAYS_DIRTY);
-		assertThat(sessionAttributes.getAttributeNames()).containsExactly("1");
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
-
-		sessionAttributes.setAttribute("1", mockDelta);
-		sessionAttributes.setAttribute("1", mockDelta);
-		sessionAttributes.setAttribute("1", mockDelta);
-
-		assertThat(sessionAttributes.getAttributeNames()).containsExactly("1");
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("1");
-
-		verify(mockDelta, never()).hasDelta();
-	}
-
-	@Test
-	public void deltaSessionAttributesNeverHasDeltaWhenIsDirtyPredicateAlwaysReturnsFalse() {
-
-		Delta mockDelta = mock(Delta.class, withSettings().lenient());
-
-		when(mockDelta.hasDelta()).thenReturn(true);
-
-		DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
-
-		sessionAttributes.setIsDirtyPredicate(IsDirtyPredicate.NEVER_DIRTY);
-
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(IsDirtyPredicate.NEVER_DIRTY);
-		assertThat(sessionAttributes.getAttributeNames()).isEmpty();
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
-
-		sessionAttributes.setAttribute("1", "TEST");
-		sessionAttributes.setAttribute("2", mockDelta);
-		sessionAttributes.setAttribute("3", new Object());
-
-		assertThat(sessionAttributes.getAttributeNames()).containsOnly("1", "2", "3");
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
-
-		verify(mockDelta, never()).hasDelta();
-	}
-
-	@Test
-	public void deltaSessionAttributesOnlyHasDeltaWhenIsDirtyPredicateReturnsTrue() {
-
-		Delta mockDelta = mock(Delta.class, withSettings().lenient());
-
-		when(mockDelta.hasDelta()).thenReturn(true);
-
-		IsDirtyPredicate mockDirtyPredicate = mock(IsDirtyPredicate.class);
-
-		when(mockDirtyPredicate.isDirty(any(), any())).thenReturn(false).thenReturn(false).thenReturn(true);
-
-		DeltaCapableGemFireSessionAttributes sessionAttributes = new DeltaCapableGemFireSessionAttributes();
-
-		sessionAttributes.setIsDirtyPredicate(mockDirtyPredicate);
-
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(mockDirtyPredicate);
-		assertThat(sessionAttributes.getAttributeNames()).isEmpty();
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
-
-		sessionAttributes.setAttribute("1", mockDelta);
-
-		assertThat(sessionAttributes.getAttributeNames()).containsExactly("1");
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
-
-		sessionAttributes.setAttribute("2", "TEST");
-
-		assertThat(sessionAttributes.getAttributeNames()).containsOnly("1", "2");
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
-		assertThat(sessionAttributes.<String>getAttribute("2")).isEqualTo("TEST");
-		assertThat(sessionAttributes.hasDelta()).isFalse();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).isEmpty();
-
-		sessionAttributes.setAttribute("2", "TEST");
-
-		assertThat(sessionAttributes.getAttributeNames()).containsOnly("1", "2");
-		assertThat(sessionAttributes.<Delta>getAttribute("1")).isEqualTo(mockDelta);
-		assertThat(sessionAttributes.<String>getAttribute("2")).isEqualTo("TEST");
-		assertThat(sessionAttributes.hasDelta()).isTrue();
-		assertThat(sessionAttributes.getSessionAttributeDeltas()).containsExactly("2");
-
-		verify(mockDelta, never()).hasDelta();
-		verify(mockDirtyPredicate, times(1)).isDirty(eq(null), eq(mockDelta));
-		verify(mockDirtyPredicate, times(1)).isDirty(eq(null), eq("TEST"));
-		verify(mockDirtyPredicate, times(1)).isDirty(eq("TEST"), eq("TEST"));
-	}
-
-	@Test
-	public void sessionAttributesEntrySetIteratesAttributeNamesAndValues() {
-
-		GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
-
-		sessionAttributes.setAttribute("keyOne", "valueOne");
-		sessionAttributes.setAttribute("keyTwo", "valueTwo");
-
-		Set<Map.Entry<String, Object>> sessionAttributeEntries = sessionAttributes.entrySet();
-
-		assertThat(sessionAttributeEntries).isNotNull();
-		assertThat(sessionAttributeEntries.size()).isEqualTo(2);
-
-		Set<String> expectedNames = new HashSet<>(asSet("keyOne", "keyTwo"));
-		Set<?> expectedValues = new HashSet<>(asSet("valueOne", "valueTwo"));
-
-		for (Map.Entry<String, Object> entry : sessionAttributeEntries) {
-			expectedNames.remove(entry.getKey());
-			expectedValues.remove(entry.getValue());
-		}
-
-		assertThat(expectedNames.isEmpty()).isTrue();
-		assertThat(expectedValues.isEmpty()).isTrue();
-
-		sessionAttributes.setAttribute("keyThree", "valueThree");
-
-		assertThat(sessionAttributeEntries.size()).isEqualTo(3);
-
-		expectedNames = new HashSet<>(asSet("keyOne", "keyTwo"));
-		expectedValues = new HashSet<>(asSet("valueOne", "valueTwo"));
-
-		for (Map.Entry<String, Object> entry : sessionAttributeEntries) {
-			expectedNames.remove(entry.getKey());
-			expectedValues.remove(entry.getValue());
-		}
-
-		assertThat(expectedNames.isEmpty()).isTrue();
-		assertThat(expectedValues.isEmpty()).isTrue();
-
-		sessionAttributes.removeAttribute("keyOne");
-		sessionAttributes.removeAttribute("keyTwo");
-
-		assertThat(sessionAttributeEntries.size()).isEqualTo(1);
-
-		Map.Entry<String, ?> entry = sessionAttributeEntries.iterator().next();
-
-		assertThat(entry.getKey()).isEqualTo("keyThree");
-		assertThat(entry.getValue()).isEqualTo("valueThree");
-	}
-
-	@Test
-	public void configuresIsDirtyPredicateReturnsGemFireSessionAttributes() {
-
-		GemFireSessionAttributes sessionAttributes = new GemFireSessionAttributes();
-
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(DeltaAwareDirtyPredicate.INSTANCE);
-		assertThat(sessionAttributes.<GemFireSessionAttributes>configureWith(EqualsDirtyPredicate.INSTANCE))
-			.isSameAs(sessionAttributes);
-		assertThat(sessionAttributes.getIsDirtyPredicate()).isEqualTo(EqualsDirtyPredicate.INSTANCE);
-	}
-
-	@Test
-	public void sessionWithAttributesAreThreadSafe() throws Throwable {
-		TestFramework.runOnce(new ThreadSafeSessionTestCase());
-	}
-
-	@SuppressWarnings("unused")
-	protected static final class ThreadSafeSessionTestCase extends MultithreadedTestCase {
-
-		private GemFireSession<?> session;
-
-		private final Instant beforeOrAtCreationTime = Instant.now();
-
-		private volatile Instant expectedCreationTime;
-
-		@Override
-		public void initialize() {
-
-			this.session = new GemFireSession<>("1");
-
-			assertThat(this.session).isNotNull();
-			assertThat(this.session.getId()).isEqualTo("1");
-			assertThat(this.session.getCreationTime()).isAfterOrEqualTo(this.beforeOrAtCreationTime);
-			assertThat(this.session.getCreationTime()).isBeforeOrEqualTo(Instant.now());
-			assertThat(this.session.getLastAccessedTime()).isEqualTo(this.session.getCreationTime());
-			assertThat(this.session.getMaxInactiveInterval()).isEqualTo(Duration.ZERO);
-			assertThat(this.session.getPrincipalName()).isNull();
-			assertThat(this.session.getAttributeNames()).isEmpty();
-
-			this.expectedCreationTime = this.session.getCreationTime();
-
-			this.session.setLastAccessedTime(this.expectedCreationTime.plusSeconds(1));
-			this.session.setMaxInactiveInterval(Duration.ofSeconds(60L));
-			this.session.setPrincipalName("jxblum");
-		}
-
-		public void thread1() {
-
-			assertTick(0);
-
-			Thread.currentThread().setName("HTTP Request Processing Thread 1");
-
-			assertThat(this.session).isNotNull();
-			assertThat(this.session.getId()).isEqualTo("1");
-			assertThat(this.session.getCreationTime()).isEqualTo(this.expectedCreationTime);
-			assertThat(this.session.getLastAccessedTime()).isEqualTo(this.expectedCreationTime.plusSeconds(1));
-			assertThat(this.session.getMaxInactiveInterval()).isEqualTo(Duration.ofSeconds(60L));
-			assertThat(this.session.getPrincipalName()).isEqualTo("jxblum");
-			assertThat(this.session.getAttributeNames()).hasSize(1);
-			assertThat(this.session.<String>getAttribute(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME))
-				.isEqualTo("jxblum");
-
-			this.session.setAttribute("junk", "test");
-			this.session.setAttribute("tennis", "ping");
-			this.session.setLastAccessedTime(this.expectedCreationTime.plusSeconds(2));
-			this.session.setMaxInactiveInterval(Duration.ofSeconds(120L));
-			this.session.setPrincipalName("rwinch");
-
-			waitForTick(2);
-
-			assertThat(this.session).isNotNull();
-			assertThat(this.session.getId()).isEqualTo("1");
-			assertThat(this.session.getCreationTime()).isEqualTo(this.expectedCreationTime);
-			assertThat(this.session.getLastAccessedTime()).isEqualTo(this.expectedCreationTime.plusSeconds(3));
-			assertThat(this.session.getMaxInactiveInterval()).isEqualTo(Duration.ofSeconds(180L));
-			assertThat(this.session.getPrincipalName()).isEqualTo("rwinch");
-			assertThat(this.session.getAttributeNames()).hasSize(3);
-			assertThat(this.session.getAttributeNames()).containsAll(asSet("tennis", "greeting"));
-			assertThat(this.session.getAttributeNames().contains("junk")).isFalse();
-			assertThat(this.session.<String>getAttribute("junk")).isNull();
-			assertThat(this.session.<String>getAttribute("tennis")).isEqualTo("pong");
-			assertThat(this.session.<String>getAttribute("greeting")).isEqualTo("hello");
-		}
-
-		public void thread2() {
-
-			assertTick(0);
-
-			Thread.currentThread().setName("HTTP Request Processing Thread 2");
-
-			waitForTick(1);
-			assertTick(1);
-
-			assertThat(this.session).isNotNull();
-			assertThat(this.session.getId()).isEqualTo("1");
-			assertThat(this.session.getCreationTime()).isEqualTo(this.expectedCreationTime);
-			assertThat(this.session.getLastAccessedTime()).isEqualTo(this.expectedCreationTime.plusSeconds(2));
-			assertThat(this.session.getMaxInactiveInterval()).isEqualTo(Duration.ofSeconds(120L));
-			assertThat(this.session.getPrincipalName()).isEqualTo("rwinch");
-			assertThat(this.session.getAttributeNames()).hasSize(3);
-			assertThat(this.session.getAttributeNames()).containsAll(asSet("junk", "tennis"));
-			assertThat(this.session.<String>getAttribute("junk")).isEqualTo("test");
-			assertThat(this.session.<String>getAttribute("tennis")).isEqualTo("ping");
-
-			this.session.setAttribute("tennis", "pong");
-			this.session.setAttribute("greeting", "hello");
-			this.session.removeAttribute("junk");
-			this.session.setLastAccessedTime(this.expectedCreationTime.plusSeconds(3));
-			this.session.setMaxInactiveInterval(Duration.ofSeconds(180L));
-			this.session.setPrincipalName("rwinch");
-		}
-
-		@Override
-		public void finish() {
-			this.session = null;
-		}
-	}
-
-	class TestGemFireOperationsSessionRepository extends GemFireOperationsSessionRepositorySupport {
-
-		TestGemFireOperationsSessionRepository(GemfireOperations gemfireOperations) {
-			super(gemfireOperations);
-		}
-
-		@Override
-		protected @Nullable Pool resolvePool(String name) {
-			return mockPool;
-		}
-	}
-
-	static class Tombstone { }
+  static class Tombstone {
+  }
 
 }
