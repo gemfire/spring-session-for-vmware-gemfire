@@ -3,6 +3,7 @@ antlrVersion = "2.7.7"
 apacheLogging = "2.14.1"
 apacheTaglibsVersion = "1.2.5"
 assertjVersion = "3.23.1"
+awaitilityVersion = "4.2.2"
 findbugsVersion = "3.0.2"
 logbackVersion = "1.4.14"
 log4jVersion = "2.19.0"
@@ -39,6 +40,8 @@ spring-security-bom = { module = "org.springframework.security:spring-security-b
 
 antlr = { module = "antlr:antlr", version.ref = "antlrVersion" }
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertjVersion" }
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitilityVersion" }
+
 findbugs-jsr305 = { module = "com.google.code.findbugs:jsr305", version.ref = "jsr305Version" }
 jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api", version.ref = "jakartaAnnotationApiVersion" }
 jakarta-servlet-api = { module = "jakarta.servlet:jakarta.servlet-api", version.ref = "jakartaServletApiVersion" }

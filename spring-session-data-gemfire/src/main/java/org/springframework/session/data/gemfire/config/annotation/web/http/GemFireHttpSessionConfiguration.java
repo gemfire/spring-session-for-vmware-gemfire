@@ -1118,9 +1118,9 @@ public class GemFireHttpSessionConfiguration extends AbstractGemFireHttpSessionC
 	 */
 	boolean isExpirationAllowed(GemFireCache gemfireCache) {
 
-		return !(GemFireUtils.isClient(gemfireCache)
-			? GemFireUtils.isProxy(getClientRegionShortcut())
-			: GemFireUtils.isProxy(getServerRegionShortcut()));
+    return GemFireUtils.isClient(gemfireCache)
+        ? !GemFireUtils.isProxy(getClientRegionShortcut())
+        : !GemFireUtils.isProxy(getServerRegionShortcut());
 	}
 
 	/**
