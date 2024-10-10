@@ -126,8 +126,12 @@ tasks {
   register("copyJavadocsToBucket") {
     dependsOn(named("javadocJar"))
     doLast {
-      val storage = StorageOptions.newBuilder().setProjectId(project.properties["docsGCSProject"].toString()).build().getService()
-      val blobId = BlobId.of(project.properties["docsGCSBucket"].toString(), "${publishingDetails.artifactName.get()}/${project.version}/${named("javadocJar").get().outputs.files.singleFile.name}")
+      val storage =
+        StorageOptions.newBuilder().setProjectId(project.properties["docsGCSProject"].toString()).build().getService()
+      val blobId = BlobId.of(
+        project.properties["docsGCSBucket"].toString(),
+        "${publishingDetails.artifactName.get()}/${project.version}/${named("javadocJar").get().outputs.files.singleFile.name}"
+      )
       val blobInfo = BlobInfo.newBuilder(blobId).build()
       storage.createFrom(blobInfo, named("javadocJar").get().outputs.files.singleFile.toPath())
     }
@@ -153,22 +157,21 @@ private fun getBaseVersion(version: String): String {
   return "${split[0]}.${split[1]}"
 }
 
-tasks.named<Test>("integrationTest"){
-    forkEvery = 1
-    maxParallelForks = 1
+tasks.named<Test>("integrationTest") {
+  forkEvery = 1
+  maxParallelForks = 1
 
-    filter {
-        includeTestsMatching("*.*Tests")
-        includeTestsMatching("*.*Test")
-    }
+  filter {
+    setIncludePatterns("*IntegrationTests", "*IntegrationTest")
+  }
 }
 
 tasks.named<Test>("test") {
-    forkEvery = 1
-    maxParallelForks = 1
+  forkEvery = 1
+  maxParallelForks = 1
 
-    filter {
-        includeTestsMatching("*.*Tests")
-        includeTestsMatching("*.*Test")
-    }
+  filter {
+    setIncludePatterns("*Tests", "*Test")
+    setExcludePatterns("*IntegrationTests", "*IntegrationTest")
+  }
 }
