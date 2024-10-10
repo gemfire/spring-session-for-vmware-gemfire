@@ -919,12 +919,10 @@ public class AbstractGemFireOperationsSessionRepositoryTests {
     when(this.mockSession.getId()).thenReturn("1");
     doNothing().when(this.sessionRepository).publishEvent(any(ApplicationEvent.class));
 
-    doReturn(true).when(sessionEventHandler).isNotLocalLoadEvent(any(EntryEvent.class));
-
     sessionEventHandler.beforeCreate(mockEntryEvent);
 
     verify(mockEntryEvent, times(2)).getKey();
-    verify(mockEntryEvent, times(3)).getNewValue();
+    verify(mockEntryEvent, times(2)).getNewValue();
     verify(sessionEventHandler, times(2)).getSessionRepository();
     verify(this.sessionRepository, times(1)).publishEvent(isA(SessionCreatedEvent.class));
   }
@@ -940,7 +938,6 @@ public class AbstractGemFireOperationsSessionRepositoryTests {
     when(mockEntryEvent.getKey()).thenReturn("1");
     when(mockEntryEvent.getNewValue()).thenReturn(this.mockSession);
 
-    doReturn(true).when(sessionEventHandler).isNotLocalLoadEvent(mockEntryEvent);
     BoundedRingHashSet cachedSessionIdsMock = mock(BoundedRingHashSet.class);
     doReturn(cachedSessionIdsMock).when(sessionEventHandler).getCachedSessionIds();
     doReturn(true).when(cachedSessionIdsMock).contains(anyInt());
@@ -948,7 +945,7 @@ public class AbstractGemFireOperationsSessionRepositoryTests {
     sessionEventHandler.beforeCreate(mockEntryEvent);
 
     verify(mockEntryEvent, times(1)).getKey();
-    verify(mockEntryEvent, times(2)).getNewValue();
+    verify(mockEntryEvent, times(1)).getNewValue();
     verifyNoInteractions(this.mockSession);
     verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
   }
