@@ -80,7 +80,7 @@ dependencies {
 
     testCompileOnly(libs.jakarta.servlet.api)
     testImplementation(libs.multithreadedtc)
-    testImplementation(libs.spring.test.gemfire)
+    testImplementation(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
     testImplementation(libs.assertj.core)
     testImplementation(libs.junit)
     testImplementation(libs.mockito.core)
@@ -92,12 +92,14 @@ dependencies {
     "integrationTestImplementation"(libs.bundles.gemfire.dependencies)
     "integrationTestImplementation"(libs.junit)
     "integrationTestImplementation"(libs.assertj.core)
+    "integrationTestImplementation"(libs.mockito.core)
+    "integrationTestImplementation"(libs.multithreadedtc)
     "integrationTestImplementation"(libs.logback.classic)
     "integrationTestImplementation"(libs.log4j.over.slf4j)
     "integrationTestImplementation"(libs.findbugs.jsr305)
     "integrationTestImplementation"(libs.spring.shell)
     "integrationTestImplementation"("org.springframework:spring-test")
-    "integrationTestImplementation"(libs.spring.test.gemfire)
+    "integrationTestImplementation"(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
     "integrationTestImplementation"(libs.gemfire.testcontainers)
 }
 
@@ -106,9 +108,12 @@ sourceSets {
         java.srcDir(file("src/integrationTest/java"))
         resources.srcDir(file("src/integrationTest/resources"))
     }
+
+
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
     val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
     if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
