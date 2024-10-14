@@ -179,3 +179,8 @@ tasks.named<Test>("test") {
   maxParallelForks = 1
   this.outputs.upToDateWhen { _ -> false }
 }
+
+tasks.named("build"){
+  dependsOn("integrationTest")
+  dependsOn("test")
+}
