@@ -3,6 +3,7 @@ antlrVersion = "2.7.7"
 apacheLogging = "2.14.1"
 apacheTaglibsVersion = "1.2.5"
 assertjVersion = "3.23.1"
+awaitilityVersion = "4.2.2"
 findbugsVersion = "3.0.2"
 logbackVersion = "1.4.14"
 log4jVersion = "2.19.0"
@@ -28,7 +29,7 @@ webjarsLocatorVersion = "0.32-1"
 webjarsTaglibVersion = "0.3"
 
 lombokVersion = "8.4"
-nebulaFacetVersion = "9.6.3"
+nebulaFacetVersion = "11.0.0"
 benManesVersions = "0.50.0"
 littlerobotsVersionCatalogUpdate = "0.8.4"
 
@@ -39,6 +40,8 @@ spring-security-bom = { module = "org.springframework.security:spring-security-b
 
 antlr = { module = "antlr:antlr", version.ref = "antlrVersion" }
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertjVersion" }
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitilityVersion" }
+
 findbugs-jsr305 = { module = "com.google.code.findbugs:jsr305", version.ref = "jsr305Version" }
 jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api", version.ref = "jakartaAnnotationApiVersion" }
 jakarta-servlet-api = { module = "jakarta.servlet:jakarta.servlet-api", version.ref = "jakartaServletApiVersion" }
@@ -87,6 +90,7 @@ gemfire-dependencies = ["gemfire-core", "gemfire-cq", "gemfire-logging", "gemfir
 
 [plugins]
 lombok = { id = "io.freefair.lombok", version.ref = "lombokVersion" }
-nebula-facet = { id = "nebula.facet", version.ref = "nebulaFacetVersion" }
+nebula-facet = { id = "com.netflix.nebula.facet", version.ref = "nebulaFacetVersion" }
+nebula-facet-integration = { id = "com.netflix.nebula.integtest-standalone", version.ref = "nebulaFacetVersion" }
 ben-manes-versions = { id = "com.github.ben-manes.versions", version.ref = "benManesVersions" }
 littlerobots-version-catalog-update = { id = "nl.littlerobots.version-catalog-update", version.ref = "littlerobotsVersionCatalogUpdate" }
