@@ -49,7 +49,6 @@ import org.springframework.data.gemfire.GemfireAccessor;
 import org.springframework.data.gemfire.GemfireOperations;
 import org.springframework.data.gemfire.util.RegionUtils;
 import org.springframework.session.Session;
-import org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.SessionEventHandlerCacheListenerAdapter;
 import org.springframework.session.data.gemfire.support.EqualsDirtyPredicate;
 import org.springframework.session.data.gemfire.support.IdentityEqualsDirtyPredicate;
 import org.springframework.session.events.AbstractSessionEvent;
@@ -158,6 +157,8 @@ public class GemFireOperationsSessionRepositoryTests {
 		verify(mockRegion, times(1)).getAttributesMutator();
 		verify(mockAttributesMutator, times(1))
 			.addCacheListener(isA(SessionEventHandlerCacheListenerAdapter.class));
+    verify(mockAttributesMutator, times(1))
+        .setCacheWriter(isA(SessionEventHandlerCacheWriterAdapter.class));
 		verifyNoMoreInteractions(mockAttributesMutator);
 	}
 
@@ -280,7 +281,7 @@ public class GemFireOperationsSessionRepositoryTests {
 
 		verify(this.mockTemplate, times(1)).get(eq("1"));
 		verify(this.mockTemplate, times(1)).remove(eq("1"));
-		verify(mockSession, times(2)).getId();
+    verify(mockSession, times(3)).getId();
 		verify(mockSession, times(1)).isExpired();
 		verify(this.mockApplicationEventPublisher, times(1))
 			.publishEvent(isA(SessionDeletedEvent.class));
@@ -583,7 +584,7 @@ public class GemFireOperationsSessionRepositoryTests {
 
 		assertThat(methodCalled.get()).isTrue();
 
-		verify(mockSession, times(1)).getId();
+    verify(mockSession, times(2)).getId();
 		verify(this.mockTemplate, times(1)).remove(eq("1"));
 		verify(this.mockApplicationEventPublisher, times(1))
 			.publishEvent(isA(SessionDeletedEvent.class));
