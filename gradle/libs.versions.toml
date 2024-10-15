@@ -58,7 +58,6 @@ spring-boot-starter-thymeleaf = { module = "org.springframework.boot:spring-boot
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web", version.ref = "springBootVersion" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "springBootVersion" }
 spring-data-gemfire = { module = "com.vmware.gemfire:spring-data-2.7-gemfire-9.15", version.ref = "springDataGemFireVersion" }
-spring-test-gemfire = { module = "com.vmware.gemfire:spring-test-gemfire-9.15-2.7", version.ref = "springTestGemFireVersion" }
 spring-tx = { module = "org.springframework:spring-tx", version.ref = "springVersion" }
 spring-security-test = { module = "org.springframework.security:spring-security-test", version.ref = "springSecurityVersion" }
 spring-shell = { module = "org.springframework.shell:spring-shell", version.ref = "springShellVersion" }
