@@ -62,7 +62,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -88,7 +87,6 @@ import static org.springframework.session.data.gemfire.AbstractGemFireOperations
 import static org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.DeltaCapableGemFireSessionAttributes;
 import static org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.GemFireSession;
 import static org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.GemFireSessionAttributes;
-import static org.springframework.session.data.gemfire.AbstractGemFireOperationsSessionRepository.SessionIdInterestRegisteringCacheListener;
 
 /**
  * Unit Tests for {@link AbstractGemFireOperationsSessionRepository}.
@@ -231,12 +229,8 @@ public class AbstractGemFireOperationsSessionRepositoryTests {
 
     RegionAttributes<Object, Session> mockRegionAttributes = mock(RegionAttributes.class);
 
-    when(this.mockPool.getSubscriptionEnabled()).thenReturn(true);
-    when(mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
     when(mockRegion.getAttributesMutator()).thenReturn(mockAttributesMutator);
     when(mockRegion.getFullPath()).thenReturn(RegionUtils.toRegionPath("Example"));
-    when(mockRegion.getRegionService()).thenReturn(mockClientCache);
-    when(mockRegionAttributes.getPoolName()).thenReturn("Dead");
 
     GemfireTemplate template = new GemfireTemplate(mockRegion);
 
@@ -247,7 +241,6 @@ public class AbstractGemFireOperationsSessionRepositoryTests {
     assertThat(sessionRepository.getApplicationEventPublisher()).isNotEqualTo(mockApplicationEventPublisher);
     assertThat(sessionRepository.getMaxInactiveIntervalInSeconds())
         .isEqualTo(GemFireHttpSessionConfiguration.DEFAULT_MAX_INACTIVE_INTERVAL_IN_SECONDS);
-    assertThat(sessionRepository.isRegisterInterestEnabled()).isTrue();
     assertThat(sessionRepository.getSessionEventHandler().orElse(null))
         .isInstanceOf(SessionEventHandlerCacheListenerAdapter.class);
     assertThat(sessionRepository.getSessionsRegion()).isSameAs(mockRegion);
@@ -261,16 +254,10 @@ public class AbstractGemFireOperationsSessionRepositoryTests {
     assertThat(sessionRepository.getApplicationEventPublisher()).isSameAs(mockApplicationEventPublisher);
     assertThat(sessionRepository.getMaxInactiveIntervalInSeconds()).isEqualTo(300);
 
-    verify(this.mockPool, times(1)).getSubscriptionEnabled();
-    verify(mockRegion, times(2)).getAttributes();
-    verify(mockRegion, times(1)).getAttributesMutator();
+    verify(this.mockPool, never()).getSubscriptionEnabled();
     verify(mockRegion, times(1)).getFullPath();
-    verify(mockRegion, times(1)).getRegionService();
-    verify(mockRegionAttributes, times(2)).getPoolName();
     verify(mockAttributesMutator, times(1))
         .addCacheListener(isA(SessionEventHandlerCacheListenerAdapter.class));
-    verify(mockAttributesMutator, times(1))
-        .addCacheListener(isA(SessionIdInterestRegisteringCacheListener.class));
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -529,17 +516,12 @@ public class AbstractGemFireOperationsSessionRepositoryTests {
 
     RegionAttributes mockRegionAttributes = mock(RegionAttributes.class);
 
-    when(this.mockPool.getSubscriptionEnabled()).thenReturn(true);
-    when(mockRegion.getAttributes()).thenReturn(mockRegionAttributes);
     when(mockRegion.getAttributesMutator()).thenReturn(mockAttributesMutator);
-    when(mockRegion.getRegionService()).thenReturn(mockClientCache);
-    when(mockRegionAttributes.getPoolName()).thenReturn("Dead");
 
     AbstractGemFireOperationsSessionRepository sessionRepository =
         new TestGemFireOperationsSessionRepository(new GemfireTemplate(mockRegion));
 
     assertThat(sessionRepository).isNotNull();
-    assertThat(sessionRepository.isRegisterInterestEnabled()).isTrue();
   }
 
   @Test
@@ -552,7 +534,6 @@ public class AbstractGemFireOperationsSessionRepositoryTests {
         new TestGemFireOperationsSessionRepository(new GemfireTemplate(mockRegion));
 
     assertThat(sessionRepository).isNotNull();
-    assertThat(sessionRepository.isRegisterInterestEnabled()).isFalse();
   }
 
   @Test
@@ -649,13 +630,13 @@ public class AbstractGemFireOperationsSessionRepositoryTests {
   public void handleDeletedSessionWhenNoSessionEventHandlerIsPresentDoesNotPublishEventButStillUnregistersInterest() {
 
     doReturn(Optional.empty()).when(this.sessionRepository).getSessionEventHandler();
+    doReturn(true).when(mockSession).isExpired();
 
     this.sessionRepository.handleDeleted("1", this.mockSession);
 
     verify(this.sessionRepository, times(1)).getSessionEventHandler();
     verify(this.sessionRepository, never()).publishEvent(any(ApplicationEvent.class));
-    verify(this.sessionRepository, times(1)).unregisterInterest(eq("1"));
-    verifyNoInteractions(this.mockSession);
+    verify(this.mockSession, times(1)).isExpired();
   }
 
   @Test
@@ -693,19 +674,6 @@ public class AbstractGemFireOperationsSessionRepositoryTests {
             isA(IllegalStateException.class));
   }
 
-  private Session testRegisterInterestWithInvalidSession(Session session) {
-
-    doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
-
-    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-
-    Session returnedSession = this.sessionRepository.registerInterest(session);
-
-    verifyNoRegionRegisterInterestCalls(this.mockRegion);
-
-    return returnedSession;
-  }
-
   private void verifyNoRegionRegisterInterestCalls(Region<?, ?> region) {
 
     verify(region, never()).registerInterest(any());
@@ -717,156 +685,11 @@ public class AbstractGemFireOperationsSessionRepositoryTests {
   }
 
   @Test
-  public void registerInterestIsNullSafe() {
-    assertThat(testRegisterInterestWithInvalidSession(null)).isNull();
-  }
-
-  @Test
-  public void registerInterestWhenRegisteringInterestIsNotEnabled() {
-
-    when(this.mockSession.getId()).thenReturn("1");
-    doReturn(false).when(this.sessionRepository).isRegisterInterestEnabled();
-
-    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-    assertThat(this.sessionRepository.registerInterest(this.mockSession)).isSameAs(this.mockSession);
-
-    verify(this.mockSession, times(1)).getId();
-    verify(this.sessionRepository, times(1)).registerInterest(eq("1"));
-    verify(this.sessionRepository, times(1)).isRegisterInterestEnabled();
-    verifyNoRegionRegisterInterestCalls(this.mockRegion);
-  }
-
-  @Test
-  public void registerInterestWithSession() {
-
-    when(this.mockSession.getId()).thenReturn("1");
-    doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
-
-    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-    assertThat(this.sessionRepository.registerInterest(this.mockSession)).isSameAs(this.mockSession);
-
-    verify(this.mockSession, times(1)).getId();
-    verify(this.sessionRepository, times(1)).registerInterest(eq("1"));
-    verify(this.sessionRepository, times(1)).isRegisterInterestEnabled();
-    verify(this.mockRegion, times(1))
-        .registerInterest(eq("1"), eq(InterestResultPolicy.NONE), eq(false), eq(true));
-  }
-
-  @Test
-  public void registerInterestWithSessionHavingEmptyId() {
-
-    when(this.mockSession.getId()).thenReturn("");
-
-    assertThat(testRegisterInterestWithInvalidSession(this.mockSession)).isEqualTo(this.mockSession);
-  }
-
-  @Test
-  public void registerInterestWithSessionHavingNullId() {
-
-    when(this.mockSession.getId()).thenReturn(null);
-
-    assertThat(testRegisterInterestWithInvalidSession(this.mockSession)).isEqualTo(this.mockSession);
-  }
-
-  @Test
-  public void registerInterestWithSessionHavingUnspecifiedId() {
-
-    when(this.mockSession.getId()).thenReturn("  ");
-
-    assertThat(testRegisterInterestWithInvalidSession(this.mockSession)).isEqualTo(this.mockSession);
-  }
-
-  @Test
-  public void registerInterestWithTheSameSessionTwice() {
-
-    when(this.mockSession.getId()).thenReturn("1");
-    doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
-
-    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-    assertThat(this.sessionRepository.registerInterest(this.mockSession)).isEqualTo(this.mockSession);
-    assertThat(this.sessionRepository.registerInterest(this.mockSession)).isEqualTo(this.mockSession);
-
-    verify(this.mockSession, times(2)).getId();
-    verify(this.sessionRepository, times(2)).registerInterest(eq("1"));
-    verify(this.sessionRepository, times(2)).isRegisterInterestEnabled();
-    verify(this.mockRegion, times(1))
-        .registerInterest(eq("1"), eq(InterestResultPolicy.NONE), eq(false), eq(true));
-  }
-
-  @Test
   public void touchSetsLastAccessedTime() {
 
     assertThat(this.sessionRepository.touch(this.mockSession)).isSameAs(this.mockSession);
 
     verify(this.mockSession, times(1)).setLastAccessedTime(any(Instant.class));
-  }
-
-  @Test
-  public void unregisterInterestIsNullSafe() {
-    assertThat(this.sessionRepository.unregisterInterest(null)).isNull();
-  }
-
-  @Test
-  public void unregisterInterestWhenRegisteringInterestIsDisabled() {
-
-    when(this.mockSession.getId()).thenReturn("1");
-    doReturn(false).when(this.sessionRepository).isRegisterInterestEnabled();
-
-    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-    assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
-
-    verify(this.mockSession, times(1)).getId();
-    verify(this.sessionRepository, times(1)).unregisterInterest(eq("1"));
-    verify(this.sessionRepository, times(1)).isRegisterInterestEnabled();
-    verify(this.mockRegion, never()).unregisterInterest(any());
-  }
-
-  @Test
-  public void unregisterInterestWithRegisteredSession() {
-
-    when(this.mockSession.getId()).thenReturn("1");
-    doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
-
-    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-    assertThat(this.sessionRepository.registerInterest(this.mockSession)).isSameAs(this.mockSession);
-    assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
-
-    verify(this.mockSession, times(2)).getId();
-    verify(this.sessionRepository, times(1)).unregisterInterest(eq("1"));
-    verify(this.sessionRepository, times(2)).isRegisterInterestEnabled();
-    verify(this.mockRegion, times(1)).unregisterInterest(eq("1"));
-  }
-
-  @Test
-  public void unregisterInterestWithTheSameSessionTwice() {
-
-    when(this.mockSession.getId()).thenReturn("1");
-    doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
-
-    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-    assertThat(this.sessionRepository.registerInterest(this.mockSession)).isSameAs(this.mockSession);
-    assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
-    assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
-
-    verify(this.mockSession, times(3)).getId();
-    verify(this.sessionRepository, times(2)).unregisterInterest(eq("1"));
-    verify(this.sessionRepository, times(3)).isRegisterInterestEnabled();
-    verify(this.mockRegion, times(1)).unregisterInterest(eq("1"));
-  }
-
-  @Test
-  public void unregisterInterestWithUnknownSession() {
-
-    when(this.mockSession.getId()).thenReturn("1");
-    doReturn(true).when(this.sessionRepository).isRegisterInterestEnabled();
-
-    assertThat(this.sessionRepository.getSessionsRegion()).isEqualTo(this.mockRegion);
-    assertThat(this.sessionRepository.unregisterInterest(this.mockSession)).isSameAs(this.mockSession);
-
-    verify(this.mockSession, times(1)).getId();
-    verify(this.sessionRepository, times(1)).unregisterInterest(eq("1"));
-    verify(this.sessionRepository, times(1)).isRegisterInterestEnabled();
-    verify(this.mockRegion, never()).unregisterInterest(any());
   }
 
   @Test
@@ -1374,75 +1197,6 @@ public class AbstractGemFireOperationsSessionRepositoryTests {
   @Test(expected = IllegalStateException.class)
   public void toSessionWithNullSessionAndUnspecifiedSessionId() {
     testToSessionWithNullSessionAndInvalidSessionId(null);
-  }
-
-  @Test
-  public void constructSessionIdInterestRegisteringCacheListener() {
-
-    SessionIdInterestRegisteringCacheListener listener =
-        new SessionIdInterestRegisteringCacheListener(this.sessionRepository);
-
-    assertThat(listener).isNotNull();
-    assertThat(listener.getSessionRepository()).isSameAs(this.sessionRepository);
-  }
-
-  @Test(expected = IllegalArgumentException.class)
-  public void constructSessionIdInterestRegisteringCacheListenerWithNull() {
-
-    try {
-      new SessionIdInterestRegisteringCacheListener(null);
-    } catch (IllegalArgumentException expected) {
-
-      assertThat(expected).hasMessage("SessionRepository is required");
-      assertThat(expected).hasNoCause();
-
-      throw expected;
-    }
-  }
-
-  @Test
-  public void constructSessionIdInterestRegisteringCacheListenerUsingSessionRepository() {
-
-    SessionIdInterestRegisteringCacheListener listener = this.sessionRepository.newSessionIdInterestRegistrar();
-
-    assertThat(listener).isNotNull();
-    assertThat(listener.getSessionRepository()).isSameAs(this.sessionRepository);
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  public void sessionIdInterestRegisteringCacheListerAfterDestroyCallsUnregisterInterest() {
-
-    SessionIdInterestRegisteringCacheListener listener =
-        spy(this.sessionRepository.newSessionIdInterestRegistrar());
-
-    EntryEvent mockEntryEvent = mock(EntryEvent.class);
-
-    when(mockEntryEvent.getKey()).thenReturn("1");
-
-    listener.afterDestroy(mockEntryEvent);
-
-    verify(listener, times(1)).getSessionRepository();
-    verify(mockEntryEvent, times(1)).getKey();
-    verify(this.sessionRepository).unregisterInterest(eq("1"));
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  public void sessionIdInterestRegisteringCacheListerAfterInvalidateCallsUnregisterInterest() {
-
-    SessionIdInterestRegisteringCacheListener listener =
-        spy(this.sessionRepository.newSessionIdInterestRegistrar());
-
-    EntryEvent mockEntryEvent = mock(EntryEvent.class);
-
-    when(mockEntryEvent.getKey()).thenReturn("1");
-
-    listener.afterInvalidate(mockEntryEvent);
-
-    verify(listener, times(1)).getSessionRepository();
-    verify(mockEntryEvent, times(1)).getKey();
-    verify(this.sessionRepository).unregisterInterest(eq("1"));
   }
 
   @Test

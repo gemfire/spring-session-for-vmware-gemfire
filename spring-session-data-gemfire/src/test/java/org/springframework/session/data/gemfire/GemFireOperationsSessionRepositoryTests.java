@@ -53,6 +53,7 @@ import org.springframework.session.data.gemfire.support.EqualsDirtyPredicate;
 import org.springframework.session.data.gemfire.support.IdentityEqualsDirtyPredicate;
 import org.springframework.session.events.AbstractSessionEvent;
 import org.springframework.session.events.SessionDeletedEvent;
+import org.springframework.session.events.SessionExpiredEvent;
 
 /**
  * Unit tests for {@link GemFireOperationsSessionRepository}.
@@ -246,7 +247,6 @@ public class GemFireOperationsSessionRepositoryTests {
 		InOrder inOrder = inOrder(sessionRepositorySpy);
 
 		inOrder.verify(sessionRepositorySpy, times(1)).configure(eq(actualSession));
-		inOrder.verify(sessionRepositorySpy, times(1)).registerInterest(eq(actualSession));
 		inOrder.verify(sessionRepositorySpy, times(1)).commit(eq(actualSession));
 		inOrder.verify(sessionRepositorySpy, times(1)).touch(eq(actualSession));
 	}
@@ -265,7 +265,7 @@ public class GemFireOperationsSessionRepositoryTests {
 
 			ApplicationEvent applicationEvent = invocation.getArgument(0);
 
-			assertThat(applicationEvent).isInstanceOf(SessionDeletedEvent.class);
+			assertThat(applicationEvent).isInstanceOf(SessionExpiredEvent.class);
 
 			AbstractSessionEvent sessionEvent = (AbstractSessionEvent) applicationEvent;
 
@@ -279,12 +279,12 @@ public class GemFireOperationsSessionRepositoryTests {
 
 		assertThat(this.sessionRepository.findById("1")).isNull();
 
-		verify(this.mockTemplate, times(1)).get(eq("1"));
+		verify(this.mockTemplate, times(2)).get(eq("1"));
 		verify(this.mockTemplate, times(1)).remove(eq("1"));
     verify(mockSession, times(3)).getId();
-		verify(mockSession, times(1)).isExpired();
+		verify(mockSession, times(2)).isExpired();
 		verify(this.mockApplicationEventPublisher, times(1))
-			.publishEvent(isA(SessionDeletedEvent.class));
+			.publishEvent(isA(SessionExpiredEvent.class));
 	}
 
 	@Test
@@ -334,12 +334,11 @@ public class GemFireOperationsSessionRepositoryTests {
 
 		verify(this.mockTemplate, times(1)).find(eq(expectedQql), eq(indexValue));
 		verify(mockSelectResults, times(1)).asList();
-		verify(mockSession, times(2)).getId();
+		verify(mockSession, times(1)).getId();
 
 		InOrder inOrder = inOrder(sessionRepositorySpy);
 
 		inOrder.verify(sessionRepositorySpy, times(1)).configure(eq(mockSession));
-		inOrder.verify(sessionRepositorySpy, times(1)).registerInterest(eq(mockSession));
 		inOrder.verify(sessionRepositorySpy, times(1)).commit(eq(mockSession));
 		inOrder.verify(sessionRepositorySpy, times(1)).touch(eq(mockSession));
 	}
@@ -381,22 +380,19 @@ public class GemFireOperationsSessionRepositoryTests {
 
 		verify(this.mockTemplate, times(1)).find(eq(expectedOql), eq(principalName));
 		verify(mockSelectResults, times(1)).asList();
-		verify(mockSessionOne, times(2)).getId();
-		verify(mockSessionTwo, times(2)).getId();
-		verify(mockSessionThree, times(2)).getId();
+		verify(mockSessionOne, times(1)).getId();
+		verify(mockSessionTwo, times(1)).getId();
+		verify(mockSessionThree, times(1)).getId();
 
 		InOrder inOrder = inOrder(sessionRepositorySpy);
 
 		inOrder.verify(sessionRepositorySpy, times(1)).configure(eq(mockSessionOne));
-		inOrder.verify(sessionRepositorySpy, times(1)).registerInterest(eq(mockSessionOne));
 		inOrder.verify(sessionRepositorySpy, times(1)).commit(eq(mockSessionOne));
 		inOrder.verify(sessionRepositorySpy, times(1)).touch(eq(mockSessionOne));
 		inOrder.verify(sessionRepositorySpy, times(1)).configure(eq(mockSessionTwo));
-		inOrder.verify(sessionRepositorySpy, times(1)).registerInterest(eq(mockSessionTwo));
 		inOrder.verify(sessionRepositorySpy, times(1)).commit(eq(mockSessionTwo));
 		inOrder.verify(sessionRepositorySpy, times(1)).touch(eq(mockSessionTwo));
 		inOrder.verify(sessionRepositorySpy, times(1)).configure(eq(mockSessionThree));
-		inOrder.verify(sessionRepositorySpy, times(1)).registerInterest(eq(mockSessionThree));
 		inOrder.verify(sessionRepositorySpy, times(1)).commit(eq(mockSessionThree));
 		inOrder.verify(sessionRepositorySpy, times(1)).touch(eq(mockSessionThree));
 	}

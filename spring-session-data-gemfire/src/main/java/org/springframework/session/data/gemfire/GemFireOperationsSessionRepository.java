@@ -5,7 +5,6 @@
 package org.springframework.session.data.gemfire;
 
 import org.apache.geode.cache.query.SelectResults;
-import org.springframework.data.gemfire.GemfireAccessor;
 import org.springframework.data.gemfire.GemfireOperations;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
@@ -142,12 +141,11 @@ public class GemFireOperationsSessionRepository extends AbstractGemFireOperation
    * @return the prepared {@link Session}.
    * @see Session
    * @see #configure(Session)
-   * @see #registerInterest(Session)
    * @see #commit(Session)
    * @see #touch(Session)
    */
   private Session prepare(Session session) {
-    return touch(commit(registerInterest(configure(session))));
+    return touch(commit(configure(session)));
   }
 
   /**
@@ -221,6 +219,9 @@ public class GemFireOperationsSessionRepository extends AbstractGemFireOperation
    * @see #handleDeleted(String, Session)
    */
   public void deleteById(String sessionId) {
-    handleDeleted(sessionId, getSessionsTemplate().<Object, Session>remove(sessionId));
+    Session sessionBeforeRemoval = getSessionsTemplate().get(sessionId);
+    Session removedSession = getSessionsTemplate().<Object, Session>remove(sessionId);
+    Session session = removedSession != null ? removedSession : sessionBeforeRemoval;
+    handleDeleted(sessionId, session);
   }
 }

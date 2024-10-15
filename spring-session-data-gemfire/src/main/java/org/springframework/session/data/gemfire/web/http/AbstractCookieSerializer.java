@@ -28,7 +28,7 @@ public class AbstractCookieSerializer implements CookieSerializer {
 	protected static final String NOT_IMPLEMENTED = "NOT IMPLEMENTED";
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public List<String> readCookieValues(HttpServletRequest request) {
@@ -36,7 +36,7 @@ public class AbstractCookieSerializer implements CookieSerializer {
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void writeCookieValue(CookieValue cookieValue) {
