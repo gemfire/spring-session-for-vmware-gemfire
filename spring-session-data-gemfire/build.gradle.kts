@@ -72,7 +72,7 @@ dependencies {
   testImplementation(libs.bundles.gemfire.dependencies)
 
   testImplementation(libs.multithreadedtc)
-  testImplementation(libs.spring.test.gemfire)
+  testImplementation(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
   testImplementation(libs.assertj.core)
   testImplementation(libs.junit)
   testImplementation(libs.mockito.core)
@@ -88,8 +88,10 @@ dependencies {
   "integrationTestImplementation"(libs.log4j.over.slf4j)
   "integrationTestImplementation"(libs.findbugs.jsr305)
   "integrationTestImplementation"(libs.spring.shell)
+  "integrationTestImplementation"(libs.mockito.core)
+  "integrationTestImplementation"(libs.multithreadedtc)
   "integrationTestImplementation"("org.springframework:spring-test")
-  "integrationTestImplementation"(libs.spring.test.gemfire)
+  "integrationTestImplementation"(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
 }
 
 sourceSets {
