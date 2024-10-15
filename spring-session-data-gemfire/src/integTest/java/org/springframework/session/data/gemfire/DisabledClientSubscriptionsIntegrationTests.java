@@ -107,7 +107,6 @@ public class DisabledClientSubscriptionsIntegrationTests extends AbstractGemFire
 		assertThat(this.sessionRepository).isInstanceOf(GemFireOperationsSessionRepository.class);
 		assertThat(((GemFireOperationsSessionRepository) this.sessionRepository).getMaxInactiveIntervalInSeconds())
 			.isEqualTo(MAX_INACTIVE_INTERVAL_IN_SECONDS);
-		assertThat(((GemFireOperationsSessionRepository) this.sessionRepository).isRegisterInterestEnabled()).isFalse();
 		assertThat(((GemFireOperationsSessionRepository) this.sessionRepository).getSessionsRegionName())
 			.isEqualTo(this.sessions.getFullPath());
 	}

@@ -81,6 +81,8 @@ dependencies {
 
   testImplementation(libs.bundles.gemfire.dependencies)
 
+  testImplementation(libs.awaitility)
+
   testCompileOnly(libs.jakarta.servlet.api)
   testImplementation(libs.multithreadedtc)
   testImplementation(libs.spring.test.gemfire)

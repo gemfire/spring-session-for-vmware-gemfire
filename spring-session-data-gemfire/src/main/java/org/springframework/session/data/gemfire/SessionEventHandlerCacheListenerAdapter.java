@@ -119,6 +119,14 @@ public class SessionEventHandlerCacheListenerAdapter extends CacheListenerAdapte
     });
   }
 
+  public void afterExpired(@NonNull String sessionId, @NonNull Session session){
+    if (sessionId == null || (session != null && session.getId() == null)) {
+      throw new IllegalStateException(String.format("The Session or the Session ID [%s] must be known to trigger a Session event", sessionId));
+    }
+    getSessionRepository().publishEvent(SessionUtils.newSessionExpiredEvent(getSessionRepository(), SessionUtils.toSession(session, sessionId)));
+    cachedSessionIds.remove(ObjectUtils.nullSafeHashCode(sessionId));
+  }
+
   /**
    * Callback method triggered when an entry is updated in the {@link Session} cache {@link Region}.
    *

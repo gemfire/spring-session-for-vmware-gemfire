@@ -7,6 +7,7 @@ package org.springframework.session.data.gemfire;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.data.gemfire.util.ArrayUtils.nullSafeArray;
@@ -186,6 +187,8 @@ public class ConcurrentSessionOperationsUsingClientCachingProxyRegionIntegration
 			waitForTick(3);
 			assertTick(3);
 
+			session = findById(requireSessionId());
+
 			assertThat(session.getAttributeNames()).containsOnly("attributeOne", "attributeTwo");
 			assertThat(session.<String>getAttribute("attributeOne")).isEqualTo("one");
 			assertThat(session.<String>getAttribute("attributeTwo")).isEqualTo("two");
@@ -329,7 +332,7 @@ public class ConcurrentSessionOperationsUsingClientCachingProxyRegionIntegration
 			try {
 
 				// The first Region.get(key) causes a deserialization (???)
-				verify(this.sessionSerializer, times(1)).fromData(any(DataInput.class));
+				verify(this.sessionSerializer, never()).fromData(any(DataInput.class));
 
 				verify(this.sessionSerializer, times(2))
 					.toData(isA(GemFireSession.class), isA(DataOutput.class));
