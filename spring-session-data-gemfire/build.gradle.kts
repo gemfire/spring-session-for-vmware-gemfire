@@ -85,7 +85,7 @@ dependencies {
 
   testCompileOnly(libs.jakarta.servlet.api)
   testImplementation(libs.multithreadedtc)
-  testImplementation(libs.spring.test.gemfire)
+  testImplementation(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
   testImplementation(libs.assertj.core)
   testImplementation(libs.junit)
   testImplementation(libs.mockito.core)
@@ -98,11 +98,13 @@ dependencies {
   "integTestImplementation"(libs.junit)
   "integTestImplementation"(libs.assertj.core)
   "integTestImplementation"(libs.logback.classic)
+  "integTestImplementation"(libs.multithreadedtc)
+  "integTestImplementation"(libs.mockito.core)
   "integTestImplementation"(libs.log4j.over.slf4j)
   "integTestImplementation"(libs.findbugs.jsr305)
   "integTestImplementation"(libs.spring.shell)
   "integTestImplementation"("org.springframework:spring-test")
-  "integTestImplementation"(libs.spring.test.gemfire)
+  "integTestImplementation"(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
   "integTestImplementation"(libs.gemfire.testcontainers)
 }
 
