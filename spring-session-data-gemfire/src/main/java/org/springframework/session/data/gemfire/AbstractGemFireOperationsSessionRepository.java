@@ -215,11 +215,6 @@ public abstract class AbstractGemFireOperationsSessionRepository
 
           sessionsRegionAttributesMutator.addCacheListener(this.sessionEventHandler);
           sessionsRegionAttributesMutator.setCacheWriter(sessionEventHandlerCacheWriter);
-
-//          if (isRegionRegisterInterestAllowed(sessionsRegion)) {
-//            this.registerInterestEnabled = true;
-//            sessionsRegionAttributesMutator.addCacheListener(newSessionIdInterestRegistrar());
-//          }
         });
 
     return sessionsRegion;
@@ -311,16 +306,6 @@ public abstract class AbstractGemFireOperationsSessionRepository
   protected SessionEventHandlerCacheWriterAdapter newSessionEventHandlerCacheWriterAdapter(BoundedRingHashSet ringHashSet) {
     return new SessionEventHandlerCacheWriterAdapter(this, ringHashSet);
   }
-
-//  /**
-//   * Constructs a new instance of {@link SessionIdInterestRegisteringCacheListener}.
-//   *
-//   * @return a new instance of {@link SessionIdInterestRegisteringCacheListener}.
-//   * @see SessionIdInterestRegisteringCacheListener
-//   */
-//  protected SessionIdInterestRegisteringCacheListener newSessionIdInterestRegistrar() {
-//    return new SessionIdInterestRegisteringCacheListener(this);
-//  }
 
   /**
    * Sets the configured {@link ApplicationEventPublisher} used to publish {@link Session}
@@ -1358,50 +1343,4 @@ public abstract class AbstractGemFireOperationsSessionRepository
       }
     }
   }
-
-//  protected static class SessionIdInterestRegisteringCacheListener extends CacheListenerAdapter<Object, Session> {
-//
-//    private final AbstractGemFireOperationsSessionRepository sessionRepository;
-//
-//    /**
-//     * Constructs a new instance of the {@link SessionIdInterestRegisteringCacheListener} initialized with
-//     * the {@link AbstractGemFireOperationsSessionRepository}.
-//     *
-//     * @param sessionRepository {@link AbstractGemFireOperationsSessionRepository} used by this listener
-//     *                          to register and unregister interests in {@link Session Sessions}.
-//     * @throws IllegalArgumentException if {@link AbstractGemFireOperationsSessionRepository} is {@literal null}.
-//     * @see AbstractGemFireOperationsSessionRepository
-//     */
-//    public SessionIdInterestRegisteringCacheListener(AbstractGemFireOperationsSessionRepository sessionRepository) {
-//
-//      Assert.notNull(sessionRepository, "SessionRepository is required");
-//
-//      this.sessionRepository = sessionRepository;
-//    }
-//
-//    /**
-//     * Returns a reference to the configured {@link SessionRepository}.
-//     *
-//     * @return a reference to the configured {@link SessionRepository}.
-//     * @see AbstractGemFireOperationsSessionRepository
-//     */
-//    protected AbstractGemFireOperationsSessionRepository getSessionRepository() {
-//      return this.sessionRepository;
-//    }
-//
-//    @Override
-//    public void afterCreate(EntryEvent<Object, Session> event) {
-//      getSessionRepository().registerInterest(event.getKey());
-//    }
-//
-//    @Override
-//    public void afterDestroy(EntryEvent<Object, Session> event) {
-//      getSessionRepository().unregisterInterest(event.getKey());
-//    }
-//
-//    @Override
-//    public void afterInvalidate(EntryEvent<Object, Session> event) {
-//      getSessionRepository().unregisterInterest(event.getKey());
-//    }
-//  }
 }
