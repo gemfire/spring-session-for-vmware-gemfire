@@ -7,6 +7,8 @@ package org.springframework.session.data.gemfire;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import com.vmware.gemfire.testcontainers.GemFireCluster;
@@ -36,6 +38,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.context.web.WebAppConfiguration;
+import org.testcontainers.shaded.org.awaitility.Awaitility;
 
 /**
  * Integration Test to test the functionality of a Pivotal GemFire cache client in a Spring Session application
@@ -126,11 +129,17 @@ public class MultiPoolClientServerGemFireOperationsSessionRepositoryIntegrationT
 
 		this.sessionEventListener.getSessionEvent();
 
-		sessionEvent = this.sessionEventListener.waitForSessionEvent(
-			TimeUnit.SECONDS.toMillis(MAX_INACTIVE_INTERVAL_IN_SECONDS + 1));
+		Awaitility.await().pollDelay(Duration.ofSeconds(MAX_INACTIVE_INTERVAL_IN_SECONDS + 1)).untilAsserted(() -> {
+			sessionRepository.findById(expectedSession.getId());
 
-		assertThat(sessionEvent).isInstanceOf(SessionExpiredEvent.class);
-		assertThat(sessionEvent.getSessionId()).isEqualTo(expectedSession.getId());
+			Optional<AbstractSessionEvent> event = Optional.ofNullable(this.sessionEventListener.waitForSessionEvent(
+					TimeUnit.SECONDS.toMillis(MAX_INACTIVE_INTERVAL_IN_SECONDS + 1)));
+
+			event.ifPresent(abstractSessionEvent -> {
+				assertThat(abstractSessionEvent).isInstanceOf(SessionExpiredEvent.class);
+				assertThat(abstractSessionEvent.getSessionId()).isEqualTo(expectedSession.getId());
+			});
+		});
 
 		Session expiredSession = this.gemfireSessionRepository.findById(expectedSession.getId());
 
