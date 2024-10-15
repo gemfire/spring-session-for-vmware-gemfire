@@ -81,6 +81,7 @@ dependencies {
 
   testImplementation(libs.bundles.gemfire.dependencies)
 
+    testImplementation(libs.awaitility)
     testCompileOnly(libs.jakarta.servlet.api)
     testImplementation(libs.multithreadedtc)
     testImplementation(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
@@ -104,15 +105,6 @@ dependencies {
     "integTestImplementation"("org.springframework:spring-test")
     "integTestImplementation"(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
     "integTestImplementation"(libs.gemfire.testcontainers)
-}
-
-sourceSets {
-    named("integTest") {
-        java.srcDir(file("src/integrationTest/java"))
-        resources.srcDir(file("src/integrationTest/resources"))
-    }
-
-
 }
 
 repositories {
@@ -176,7 +168,7 @@ tasks.register<Jar>("testJar") {
 tasks.named<Test>("integrationTest",Test::class.java) {
   dependsOn("testJar")
   forkEvery = 1
-  maxParallelForks = 3
+  maxParallelForks = 1
   this.outputs.upToDateWhen { _ -> false }
 
   val springTestGemfireDockerImage: String by project

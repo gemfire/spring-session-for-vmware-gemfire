@@ -36,7 +36,6 @@ import org.springframework.session.data.gemfire.model.BoundedRingHashSet;
 import org.springframework.session.data.gemfire.support.GemFireUtils;
 import org.springframework.session.data.gemfire.support.IsDirtyPredicate;
 import org.springframework.session.data.gemfire.support.SessionIdHolder;
-import org.springframework.session.data.gemfire.support.SessionUtils;
 import org.springframework.session.events.AbstractSessionEvent;
 import org.springframework.session.events.SessionCreatedEvent;
 import org.springframework.session.events.SessionDeletedEvent;
@@ -123,8 +122,6 @@ public abstract class AbstractGemFireOperationsSessionRepository
   private static final IsDirtyPredicate DEFAULT_IS_DIRTY_PREDICATE =
       GemFireHttpSessionConfiguration.DEFAULT_IS_DIRTY_PREDICATE;
 
-  private boolean registerInterestEnabled = DEFAULT_REGISTER_INTEREST_ENABLED;
-
   private ApplicationEventPublisher applicationEventPublisher = event -> {
   };
 
@@ -202,8 +199,7 @@ public abstract class AbstractGemFireOperationsSessionRepository
    * @param sessionsRegion {@link Region} to initialize.
    * @return the given {@link Region}.
    * @see Region
-   * @see #newSessionEventHandler()
-   * @see #newSessionIdInterestRegistrar()
+   * @see #newSessionEventHandler(BoundedRingHashSet)
    * @see #isRegionRegisterInterestAllowed(Region)
    */
   private @Nullable Region<Object, Session> initializeSessionsRegion(
@@ -219,11 +215,6 @@ public abstract class AbstractGemFireOperationsSessionRepository
 
           sessionsRegionAttributesMutator.addCacheListener(this.sessionEventHandler);
           sessionsRegionAttributesMutator.setCacheWriter(sessionEventHandlerCacheWriter);
-
-          if (isRegionRegisterInterestAllowed(sessionsRegion)) {
-            this.registerInterestEnabled = true;
-            sessionsRegionAttributesMutator.addCacheListener(newSessionIdInterestRegistrar());
-          }
         });
 
     return sessionsRegion;
@@ -314,16 +305,6 @@ public abstract class AbstractGemFireOperationsSessionRepository
    */
   protected SessionEventHandlerCacheWriterAdapter newSessionEventHandlerCacheWriterAdapter(BoundedRingHashSet ringHashSet) {
     return new SessionEventHandlerCacheWriterAdapter(this, ringHashSet);
-  }
-
-  /**
-   * Constructs a new instance of {@link SessionIdInterestRegisteringCacheListener}.
-   *
-   * @return a new instance of {@link SessionIdInterestRegisteringCacheListener}.
-   * @see SessionIdInterestRegisteringCacheListener
-   */
-  protected SessionIdInterestRegisteringCacheListener newSessionIdInterestRegistrar() {
-    return new SessionIdInterestRegisteringCacheListener(this);
   }
 
   /**
@@ -444,16 +425,6 @@ public abstract class AbstractGemFireOperationsSessionRepository
         .map(Duration::getSeconds)
         .map(Long::intValue)
         .orElse(0);
-  }
-
-  /**
-   * Determines whether {@link Region} {@literal register interest} is enabled
-   * in the current Apache Geode / Pivotal GemFire configuration.
-   *
-   * @return a boolean value indicating whether interest registration is enabled.
-   */
-  protected boolean isRegisterInterestEnabled() {
-    return this.registerInterestEnabled;
   }
 
   protected Optional<SessionEventHandlerCacheListenerAdapter> getSessionEventHandler() {
@@ -590,14 +561,17 @@ public abstract class AbstractGemFireOperationsSessionRepository
    * @param session   deleted {@link Session}.
    * @see SessionEventHandlerCacheListenerAdapter#afterDelete(String, Session)
    * @see Session
-   * @see #unregisterInterest(Object)
    */
   protected void handleDeleted(String sessionId, Session session) {
+    Optional.ofNullable(session).ifPresentOrElse(session1 -> {
+      if (session.isExpired()) {
+        getSessionEventHandler()
+            .ifPresent(it -> it.afterExpired(sessionId, session));
+      } else {
+        getSessionEventHandler().ifPresent(it -> it.afterDelete(sessionId, session));
+      }
+    }, () -> getSessionEventHandler().ifPresent(it -> it.afterDelete(sessionId, session)));
 
-    getSessionEventHandler()
-        .ifPresent(it -> it.afterDelete(sessionId, session));
-
-    unregisterInterest(sessionId);
   }
 
   /**
@@ -618,47 +592,6 @@ public abstract class AbstractGemFireOperationsSessionRepository
   }
 
   /**
-   * Registers interest in the given {@link Session} in order to receive notifications and updates.
-   *
-   * @param session {@link Session} of interest to this application that will be registered.
-   * @return the given {@link Session}.
-   * @see Session#getId()
-   * @see Session
-   * @see #registerInterest(Object)
-   */
-  protected Session registerInterest(@Nullable Session session) {
-
-    Optional.ofNullable(session)
-        .map(Session::getId)
-        .ifPresent(this::registerInterest);
-
-    return session;
-  }
-
-  /**
-   * Registers interest on the {@link Session#getId()} ID} of a {@link Session}.
-   * <p>
-   * And, only registers interest in the given Session ID iff we have not already registered interest
-   * in this Session ID before.
-   *
-   * @param sessionId {@link Session#getId() ID} of the {@link Session} of interest to this application.
-   * @see Region#registerInterest(Object, InterestResultPolicy, boolean, boolean)
-   * @see #isRegisterInterestEnabled()
-   */
-  protected void registerInterest(@Nullable Object sessionId) {
-
-    Optional.ofNullable(sessionId)
-        .filter(it -> isRegisterInterestEnabled())
-        .filter(SessionUtils::isValidSessionId)
-        .map(ObjectUtils::nullSafeHashCode)
-        .filter(this.interestingSessionIds::add)
-        .ifPresent(it ->
-            getSessionsRegion().registerInterest(sessionId, DEFAULT_REGISTER_INTEREST_RESULT_POLICY,
-                DEFAULT_REGISTER_INTEREST_DURABILITY, DEFAULT_REGISTER_INTEREST_RECEIVE_VALUES)
-        );
-  }
-
-  /**
    * Updates the {@link Session#setLastAccessedTime(Instant)} property of the {@link Session}
    * to the {@link Instant#now() current time}.
    *
@@ -673,42 +606,6 @@ public abstract class AbstractGemFireOperationsSessionRepository
     session.setLastAccessedTime(Instant.now());
 
     return session;
-  }
-
-  /**
-   * Unregisters interest in the given {@link Session} in order to stop notifications and updates.
-   *
-   * @param session {@link Session} no longer of any interest to this application that will be unregistered.
-   * @return the given {@link Session}.
-   * @see Session#getId()
-   * @see Session
-   * @see #unregisterInterest(Object)
-   */
-  @SuppressWarnings("unused")
-  protected Session unregisterInterest(@Nullable Session session) {
-
-    Optional.ofNullable(session)
-        .map(Session::getId)
-        .ifPresent(this::unregisterInterest);
-
-    return session;
-  }
-
-  /**
-   * Unregisters interest on the {@link Session#getId()} ID} of a {@link Session}.
-   *
-   * @param sessionId {@link Session#getId() ID} of the {@link Session} no longer of any interest
-   *                  to this application.
-   * @see Region#unregisterInterest(Object)
-   * @see #isRegisterInterestEnabled()
-   */
-  protected void unregisterInterest(@Nullable Object sessionId) {
-
-    Optional.ofNullable(sessionId)
-        .filter(it -> this.isRegisterInterestEnabled())
-        .map(ObjectUtils::nullSafeHashCode)
-        .filter(this.interestingSessionIds::remove)
-        .ifPresent(it -> getSessionsRegion().unregisterInterest(sessionId));
   }
 
   @SuppressWarnings("unused")
@@ -1444,52 +1341,6 @@ public abstract class AbstractGemFireOperationsSessionRepository
       synchronized (getLock()) {
         return getMap().toString();
       }
-    }
-  }
-
-  protected static class SessionIdInterestRegisteringCacheListener extends CacheListenerAdapter<Object, Session> {
-
-    private final AbstractGemFireOperationsSessionRepository sessionRepository;
-
-    /**
-     * Constructs a new instance of the {@link SessionIdInterestRegisteringCacheListener} initialized with
-     * the {@link AbstractGemFireOperationsSessionRepository}.
-     *
-     * @param sessionRepository {@link AbstractGemFireOperationsSessionRepository} used by this listener
-     *                          to register and unregister interests in {@link Session Sessions}.
-     * @throws IllegalArgumentException if {@link AbstractGemFireOperationsSessionRepository} is {@literal null}.
-     * @see AbstractGemFireOperationsSessionRepository
-     */
-    public SessionIdInterestRegisteringCacheListener(AbstractGemFireOperationsSessionRepository sessionRepository) {
-
-      Assert.notNull(sessionRepository, "SessionRepository is required");
-
-      this.sessionRepository = sessionRepository;
-    }
-
-    /**
-     * Returns a reference to the configured {@link SessionRepository}.
-     *
-     * @return a reference to the configured {@link SessionRepository}.
-     * @see AbstractGemFireOperationsSessionRepository
-     */
-    protected AbstractGemFireOperationsSessionRepository getSessionRepository() {
-      return this.sessionRepository;
-    }
-
-    @Override
-    public void afterCreate(EntryEvent<Object, Session> event) {
-      getSessionRepository().registerInterest(event.getKey());
-    }
-
-    @Override
-    public void afterDestroy(EntryEvent<Object, Session> event) {
-      getSessionRepository().unregisterInterest(event.getKey());
-    }
-
-    @Override
-    public void afterInvalidate(EntryEvent<Object, Session> event) {
-      getSessionRepository().unregisterInterest(event.getKey());
     }
   }
 }
