@@ -34,7 +34,7 @@ class ArtifactoryPlugin implements Plugin<Project> {
         // clientConfig.setIncludeEnvVars(true)
 
         def buildInfo = clientConfig.info
-        buildInfo.setBuildName(project.name + "-" + project.version)
+        buildInfo.setBuildName("spring-session-3.1-gemfire-10.0-1.0.x")
         buildInfo.setBuildNumber(project.properties.getOrDefault("buildId", '0000') as String)
         buildInfo.setProject("tds-gemfire")
         buildInfo.setAgentName(System.properties['user.name'] as String)
