@@ -369,6 +369,7 @@ public class ConcurrentSessionOperationsUsingClientCachingProxyRegionIntegration
 		clientRegionShortcut = ClientRegionShortcut.CACHING_PROXY,
 		poolName = "DEFAULT",
 		regionName = "Sessions",
+		maxInactiveIntervalInSeconds = 0,
 		sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME
 	)
 	static class GemFireClientConfiguration { }
