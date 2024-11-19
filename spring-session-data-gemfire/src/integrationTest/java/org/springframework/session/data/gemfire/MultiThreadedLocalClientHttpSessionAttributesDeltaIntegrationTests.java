@@ -212,6 +212,7 @@ public class MultiThreadedLocalClientHttpSessionAttributesDeltaIntegrationTests
 	@EnableGemFireHttpSession(
 		clientRegionShortcut = ClientRegionShortcut.LOCAL,
 		poolName = "DEFAULT",
+		maxInactiveIntervalInSeconds = 0,
 		sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME
 	)
 	static class TestConfiguration { }
