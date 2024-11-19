@@ -110,6 +110,7 @@ public class ConcurrentSessionOperationsUsingClientLocalRegionIntegrationTests
 	@EnableGemFireHttpSession(
 		clientRegionShortcut = ClientRegionShortcut.LOCAL,
 		poolName = "DEFAULT",
+		maxInactiveIntervalInSeconds = 0,
 		sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME
 	)
 	@SuppressWarnings("unused")
