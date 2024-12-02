@@ -31,7 +31,7 @@ public class BoundedRingHashSet {
     this(DEFAULT_CAPACITY);
   }
 
-  public void add(int sessionHash) {
+  public synchronized void add(int sessionHash) {
     if (!backingSet.contains(sessionHash)) {
       int position = getNextAvailablePosition();
       Optional.ofNullable(positionLookup[position])
@@ -41,18 +41,22 @@ public class BoundedRingHashSet {
     }
   }
 
-  public void remove(int sessionHash) {
+  public synchronized void remove(int sessionHash) {
     backingSet.remove(sessionHash);
   }
 
-  public boolean contains(int sessionHash) {
+  public synchronized boolean contains(int sessionHash) {
     return backingSet.contains(sessionHash);
   }
 
-  private synchronized Integer getNextAvailablePosition() {
+  protected synchronized Integer getNextAvailablePosition() {
     if (currentPosition >= listSize) {
       currentPosition = 0;
     }
     return currentPosition++;
+  }
+
+  protected int getSize() {
+    return backingSet.size();
   }
 }
