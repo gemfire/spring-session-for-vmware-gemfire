@@ -134,15 +134,7 @@ repositories {
 
   project.repositories.clear()
   project.repositories.addAll(listOrderedRepos)
-    mavenCentral()
-    val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
-    if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
-        additionalMavenRepoURLs.split(",").forEach {
-            project.repositories.maven {
-                this.url = uri(it)
-            }
-        }
-    }
+
 }
 
 tasks {
