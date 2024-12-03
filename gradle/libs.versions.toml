@@ -17,7 +17,7 @@ multithreadedtcVersion = "1.01"
 seleniumHTMLDriverVersion = "3.61.0"
 seleniumVersion = "3.141.59"
 slf4jVersion = "1.7.36"
-springSecurityVersion = "5.7.12"
+springSecurityVersion = "5.7.14"
 springShellVersion = "1.2.0.RELEASE"
 springVersion = "5.3.39"
 springBootVersion = "2.7.18"
@@ -32,7 +32,7 @@ webjarsTaglibVersion = "0.3"
 lombokVersion = "8.6"
 nebulaFacetVersion = "9.6.3"
 benManesVersions = "0.50.0"
-littlerobotsVersionCatalogUpdate = "0.8.4"
+littlerobotsVersionCatalogUpdate = "0.8.5"
 
 [libraries]
 
