@@ -158,7 +158,8 @@ private fun getSpringSessionBaseVersion(): String {
 }
 
 private fun getGemFireBaseVersion(): String {
-  return getBaseVersion(property("gemfireVersion").toString())
+  val gemfireVersion: String by project
+  return getBaseVersion(gemfireVersion)
 }
 
 private fun getBaseVersion(version: String): String {
