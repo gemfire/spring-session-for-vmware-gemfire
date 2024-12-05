@@ -7,7 +7,7 @@ import com.google.cloud.storage.BlobId
 import com.google.cloud.storage.BlobInfo
 import com.google.cloud.storage.StorageOptions
 import nebula.plugin.responsible.TestFacetDefinition
-import java.util.LinkedList
+import java.util.*
 
 buildscript {
   dependencies {
@@ -191,12 +191,15 @@ tasks.named<Test>("integrationTest",Test::class.java) {
   System.err.println("Spring Docker image: $springTestGemfireDockerImage")
   systemProperty("spring.test.gemfire.docker.image", springTestGemfireDockerImage)
   systemProperty("TEST_JAR_PATH", tasks.getByName<Jar>("testJar").outputs.files.singleFile.absolutePath)
+  filter { includeTestsMatching("*IntegrationTests") }
+
 }
 
 tasks.named<Test>("test") {
   forkEvery = 1
   maxParallelForks = 1
   this.outputs.upToDateWhen { _ -> false }
+  filter { excludeTestsMatching("*IntegrationTests") }
 }
 
 tasks.named("build"){
