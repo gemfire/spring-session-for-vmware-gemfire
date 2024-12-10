@@ -35,18 +35,20 @@ java {
   toolchain { languageVersion = JavaLanguageVersion.of(17) }
 }
 
+val testJarClasspath = configurations.create("testJarClasspath")
+
 tasks.withType<JavaCompile>().configureEach {
   options.compilerArgs.add("-parameters")
 }
 
 tasks.named<Javadoc>("javadoc") {
   title =
-    "Spring Session 3.3 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
+    "Spring Session 3.4 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
   isFailOnError = false
 }
 
 publishingDetails {
-  artifactName.set("spring-session-3.3-gemfire-${getGemFireBaseVersion()}")
+  artifactName.set("spring-session-3.4-gemfire-${getGemFireBaseVersion()}")
   longName.set("Spring Session VMware GemFire")
   description.set("Spring Session For VMware GemFire")
 }
@@ -82,30 +84,37 @@ dependencies {
 
   testImplementation(libs.bundles.gemfire.dependencies)
 
-    testImplementation(libs.awaitility)
-    testCompileOnly(libs.jakarta.servlet.api)
-    testImplementation(libs.multithreadedtc)
-    testImplementation(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
-    testImplementation(libs.assertj.core)
-    testImplementation(libs.junit)
-    testImplementation(libs.mockito.core)
-    testImplementation(libs.logback.classic)
-    testImplementation(libs.log4j.over.slf4j)
-    testImplementation("org.springframework:spring-test")
-    testImplementation("org.springframework:spring-web")
+  testImplementation(libs.awaitility)
+  testCompileOnly(libs.jakarta.servlet.api)
+  testImplementation(libs.multithreadedtc)
+  testImplementation(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
+  testImplementation(libs.assertj.core)
+  testImplementation(libs.junit)
+  testImplementation(libs.mockito.core)
+  testImplementation(libs.logback.classic)
+  testImplementation(libs.log4j.over.slf4j)
+  testImplementation("org.springframework:spring-test")
+  testImplementation("org.springframework:spring-web")
 
-    "integTestImplementation"(libs.bundles.gemfire.dependencies)
-    "integTestImplementation"(libs.junit)
-    "integTestImplementation"(libs.assertj.core)
-    "integTestImplementation"(libs.mockito.core)
-    "integTestImplementation"(libs.multithreadedtc)
-    "integTestImplementation"(libs.logback.classic)
-    "integTestImplementation"(libs.log4j.over.slf4j)
-    "integTestImplementation"(libs.findbugs.jsr305)
-    "integTestImplementation"(libs.spring.shell)
-    "integTestImplementation"("org.springframework:spring-test")
-    "integTestImplementation"(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
-    "integTestImplementation"(libs.gemfire.testcontainers)
+  "integTestImplementation"(libs.bundles.gemfire.dependencies)
+  "integTestImplementation"(libs.junit)
+  "integTestImplementation"(libs.assertj.core)
+  "integTestImplementation"(libs.mockito.core)
+  "integTestImplementation"(libs.multithreadedtc)
+  "integTestImplementation"(libs.logback.classic)
+  "integTestImplementation"(libs.log4j.over.slf4j)
+  "integTestImplementation"(libs.findbugs.jsr305)
+  "integTestImplementation"(libs.spring.shell)
+  "integTestImplementation"("org.springframework:spring-test")
+  "integTestImplementation"(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
+  "integTestImplementation"(libs.gemfire.testcontainers)
+
+  testJarClasspath(libs.spring.session.core)
+  testJarClasspath(libs.spring.security.bom)
+  testJarClasspath("org.springframework.security:spring-security-core")
+  testJarClasspath(libs.spring.data.gemfire) {
+    exclude(group = "org.bouncycastle", module = "bcprov-jdk18on")
+  }
 }
 
 repositories {
@@ -173,10 +182,7 @@ private fun getBaseVersion(version: String): String {
 tasks.register<Jar>("testJar") {
   from(sourceSets.getByName("integTest").output)
   from(sourceSets.main.get().output)
-  from({
-    configurations.runtimeClasspath.get().filter { it.isDirectory }.plus(
-      configurations.runtimeClasspath.get().filter { !it.isDirectory }.map { zipTree(it) })
-  })
+  from(testJarClasspath.map { zipTree(it) })
   archiveFileName = "testJar.jar"
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }

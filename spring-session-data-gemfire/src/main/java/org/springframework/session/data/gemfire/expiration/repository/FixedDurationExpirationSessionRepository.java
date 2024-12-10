@@ -13,8 +13,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
-
-import org.apache.shiro.util.Assert;
+import org.springframework.util.Assert;
 
 /**
  * The {@link FixedDurationExpirationSessionRepository} class is a {@link SessionRepository} implementation wrapping
