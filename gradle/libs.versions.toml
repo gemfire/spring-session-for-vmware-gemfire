@@ -41,6 +41,7 @@ logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "lo
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockitoVersion" }
 multithreadedtc = { module = "edu.umd.cs.mtc:multithreadedtc", version.ref = "multithreadedtcVersion" }
 spring-data-gemfire = { module = "com.vmware.gemfire:spring-data-3.4-gemfire-10.2", version.ref = "springDataGemFireVersion" }
+spring-data-gemfire-test-framework = { module = "com.vmware.gemfire:spring-data-3.4-gemfire-test-framework-10.2", version.ref = "springDataGemFireVersion" }
 spring-framework-bom = { module = "org.springframework:spring-framework-bom", version.ref = "springVersion" }
 spring-security-bom = { module = "org.springframework.security:spring-security-bom", version.ref = "springSecurityVersion" }
 spring-session-core = { module = "org.springframework.session:spring-session-core", version.ref = "springSessionVersion" }
