@@ -106,7 +106,7 @@ dependencies {
   "integTestImplementation"(libs.findbugs.jsr305)
   "integTestImplementation"(libs.spring.shell)
   "integTestImplementation"("org.springframework:spring-test")
-  "integTestImplementation"(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
+  "integTestImplementation"(libs.spring.data.gemfire.test.framework)
   "integTestImplementation"(libs.gemfire.testcontainers)
 
   testJarClasspath(libs.spring.session.core)
