@@ -15,11 +15,11 @@ multithreadedtcVersion = "1.01"
 seleniumHTMLDriverVersion = "3.61.0"
 seleniumVersion = "3.141.59"
 slf4jVersion = "1.7.36"
-springSecurityVersion = "5.7.14"
+springSecurityVersion = "5.7.+"
 springShellVersion = "1.2.0.RELEASE"
-springVersion = "5.3.39"
-springBootVersion = "2.7.18"
-springSessionVersion = "2.7.4"
+springVersion = "5.3.+"
+springBootVersion = "2.7.+"
+springSessionVersion = "2.7.+"
 webjarsBootstrapVersion = "2.3.2"
 webjarsJqueryVersion = "1.12.4"
 webjarsLocatorCoreVersion = "0.32"
@@ -58,6 +58,7 @@ spring-boot-starter-thymeleaf = { module = "org.springframework.boot:spring-boot
 spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web", version.ref = "springBootVersion" }
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "springBootVersion" }
 spring-data-gemfire = { module = "com.vmware.gemfire:spring-data-2.7-gemfire-9.15", version.ref = "springDataGemFireVersion" }
+spring-data-gemfire-test-framework = { module = "com.vmware.gemfire:spring-data-2.7-gemfire-test-framework-9.15", version.ref = "springDataGemFireVersion" }
 spring-tx = { module = "org.springframework:spring-tx", version.ref = "springVersion" }
 spring-security-test = { module = "org.springframework.security:spring-security-test", version.ref = "springSecurityVersion" }
 spring-shell = { module = "org.springframework.shell:spring-shell", version.ref = "springShellVersion" }
