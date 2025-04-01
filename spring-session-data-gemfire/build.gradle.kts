@@ -84,7 +84,7 @@ dependencies {
   testImplementation(libs.awaitility)
   testCompileOnly(libs.jakarta.servlet.api)
   testImplementation(libs.multithreadedtc)
-  testImplementation(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
+  testImplementation(libs.spring.data.gemfire.test.framework)
   testImplementation(libs.assertj.core)
   testImplementation(libs.junit)
   testImplementation(libs.mockito.core)
@@ -103,7 +103,7 @@ dependencies {
   "integrationTestImplementation"(libs.mockito.core)
   "integrationTestImplementation"(libs.multithreadedtc)
   "integrationTestImplementation"("org.springframework:spring-test")
-  "integrationTestImplementation"(variantOf(libs.spring.data.gemfire) { classifier("test-framework")})
+  "integrationTestImplementation"(libs.spring.data.gemfire.test.framework)
 }
 
 sourceSets {
