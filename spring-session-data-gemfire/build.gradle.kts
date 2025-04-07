@@ -3,10 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import com.google.auth.oauth2.GoogleCredentials
 import com.google.cloud.storage.BlobId
 import com.google.cloud.storage.BlobInfo
 import com.google.cloud.storage.StorageOptions
 import nebula.plugin.responsible.TestFacetDefinition
+import java.io.FileInputStream
 import java.util.LinkedList
 
 buildscript {
@@ -141,7 +143,8 @@ tasks {
     dependsOn(named("javadocJar"))
     doLast {
       val storage =
-        StorageOptions.newBuilder().setProjectId(project.properties["docsGCSProject"].toString()).build().getService()
+        StorageOptions.newBuilder().setProjectId(project.properties["docsGCSProject"].toString()).setCredentials(
+          GoogleCredentials.fromStream(FileInputStream(project.properties["docsGCSProjectCredentials"].toString()))).build().getService()
       val blobId = BlobId.of(
         project.properties["docsGCSBucket"].toString(),
         "${publishingDetails.artifactName.get()}/${project.version}/${named("javadocJar").get().outputs.files.singleFile.name}"
