@@ -121,6 +121,7 @@ dependencies {
 
 repositories {
   mavenCentral()
+  maven { url = uri("https://repo.spring.io/milestone") }
   val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
   if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
     additionalMavenRepoURLs.split(",").forEach {
