@@ -7,7 +7,7 @@ awaitilityVersion = "4.2.2"
 findbugsVersion = "3.0.2"
 logbackVersion = "1.4.14"
 log4jVersion = "2.19.0"
-gemFireTestContainersVersion = "2.0.0"
+gemFireTestContainersVersion = "2.3.3"
 jakartaServletApiVersion = "6.0.0"
 jakartaServletJspJstlApiVersion = "3.0.0"
 jakartaAnnotationApiVersion = "2.1.1"
@@ -18,10 +18,10 @@ multithreadedtcVersion = "1.01"
 seleniumHTMLDriverVersion = "3.61.0"
 seleniumVersion = "4.5.3"
 slf4jVersion = "2.0.16"
-springSecurityVersion = "6.3.+"
+springSecurityVersion = "6.3.9"
 springShellVersion = "1.2.0.RELEASE"
-springVersion = "6.1.+"
-springSessionVersion = "3.3.+"
+springVersion = "6.1.20"
+springSessionVersion = "3.3.7"
 webjarsBootstrapVersion = "2.3.2"
 webjarsJqueryVersion = "1.12.4"
 webjarsLocatorCoreVersion = "0.32"
@@ -84,7 +84,7 @@ gemfire-tcp-server = { module = "com.vmware.gemfire:gemfire-tcp-server", version
 gemfire-tcp-messenger = { module = "com.vmware.gemfire:gemfire-tcp-messenger", version.ref = "gemfireVersion" }
 gemfire-deployment-chained-classloader = { module = "com.vmware.gemfire:gemfire-deployment-chained-classloader", version.ref = "gemfireVersion" }
 
-gemfire-testcontainers = { module = "com.vmware.gemfire:gemfire-testcontainers", version.ref = "gemFireTestContainersVersion" }
+gemfire-testcontainers = { module = "dev.gemfire:gemfire-testcontainers", version.ref = "gemFireTestContainersVersion" }
 
 [bundles]
 gemfire-dependencies = ["gemfire-core", "gemfire-cq", "gemfire-logging", "gemfire-deployment-chained-classloader", "gemfire-gfsh", "gemfire-tcp-server", "gemfire-wan", "gemfire-tcp-messenger","gemfire-version"]
