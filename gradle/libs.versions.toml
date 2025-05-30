@@ -15,7 +15,7 @@ multithreadedtcVersion = "1.01"
 nebulaFacetVersion = "11.0.0"
 slf4jVersion = "2.0.16"
 springSecurityVersion = "6.5.0"
-springSessionVersion = "3.5.0-RC1"
+springSessionVersion = "3.5.0"
 springShellVersion = "1.2.0.RELEASE"
 springVersion = "6.2.7"
 
