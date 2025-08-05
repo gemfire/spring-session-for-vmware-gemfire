@@ -45,14 +45,14 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.named<Javadoc>("javadoc") {
   title =
-    "Spring Session 3.5 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
+    "Spring Session 4.0 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
   isFailOnError = false
 }
 
 publishingDetails {
-  artifactName.set("spring-session-3.5-gemfire-${getGemFireBaseVersion()}")
+  artifactName.set("spring-session-4.0-gemfire-${getGemFireBaseVersion()}")
   longName.set("Spring Session VMware GemFire")
-  description.set("Spring Session For VMware GemFire")
+  description.set("Spring Session 4.0 For VMware GemFire")
 }
 
 facets {
@@ -68,7 +68,7 @@ dependencies {
   implementation(platform(libs.spring.security.bom))
 
   implementation("org.springframework:spring-context-support")
-  implementation("org.springframework:spring-jcl")
+//  implementation("org.springframework:spring-jcl")
 
   api(libs.spring.data.gemfire)
   api(libs.spring.session.core)

@@ -15,19 +15,10 @@ repositories {
     providers.environmentVariable("HOME").get() + "/.gradle/gradleRepositories.json"
   )
 
-  val enablePrivateCommercialRepos =
-    providers.gradleProperty("spring.gemfire.enable.private.repositories")
-      .getOrElse("false").toBoolean()
   val jsonString = File(repositoryConfigFilePath).readText(Charsets.UTF_8)
   val repositories = groovy.json.JsonSlurper().parseText(jsonString) as Map<*, *>
   (repositories["repositories"] as List<*>).filterNotNull().map { entry -> entry as Map<*, *> }
-    .filter { entry ->
-      return@filter if (entry["private"]!! as Boolean) {
-        enablePrivateCommercialRepos
-      } else {
-        true
-      }
-    }.forEach { entry ->
+    .forEach { entry ->
       entry.apply {
         maven {
           url = uri(entry["url"]!! as String)
