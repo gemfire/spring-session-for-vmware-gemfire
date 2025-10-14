@@ -130,20 +130,6 @@ repositories {
       }
     }
   }
-  val listOrderedRepos= LinkedList<ArtifactRepository>()
-  val values = project.repositories.asMap.values
-  values.forEach { artifactRepository ->
-    if (artifactRepository is MavenArtifactRepository) {
-      if (artifactRepository.url.toString().startsWith("gcs:")) {
-        listOrderedRepos.addFirst(artifactRepository)
-      } else {
-        listOrderedRepos.add(artifactRepository)
-      }
-    }
-  }
-
-  project.repositories.clear()
-  project.repositories.addAll(listOrderedRepos)
 }
 
 tasks {
