@@ -40,8 +40,8 @@ log4j-over-slf4j = { module = "org.slf4j:log4j-over-slf4j", version.ref = "slf4j
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logbackVersion" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockitoVersion" }
 multithreadedtc = { module = "edu.umd.cs.mtc:multithreadedtc", version.ref = "multithreadedtcVersion" }
-spring-data-gemfire = { module = "com.vmware.gemfire:spring-data-4.0-gemfire-10.2", version.ref ="springDataGemFireVersion" }
-spring-data-gemfire-test-framework = { module = "com.vmware.gemfire:spring-data-4.0-gemfire-test-framework-10.2", version.ref = "springDataGemFireVersion" }
+spring-data-gemfire = { module = "com.vmware.gemfire:spring-data-4.0-gemfire-10.3", version.ref ="springDataGemFireVersion" }
+spring-data-gemfire-test-framework = { module = "com.vmware.gemfire:spring-data-4.0-gemfire-test-framework-10.3", version.ref = "springDataGemFireVersion" }
 spring-framework-bom = { module = "org.springframework:spring-framework-bom", version.ref = "springVersion" }
 spring-security-bom = { module = "org.springframework.security:spring-security-bom", version.ref = "springSecurityVersion" }
 spring-session-core = { module = "org.springframework.session:spring-session-core", version.ref = "springSessionVersion" }
