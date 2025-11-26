@@ -14,10 +14,10 @@ mockitoVersion = "5.14.2"
 multithreadedtcVersion = "1.01"
 nebulaFacetVersion = "11.0.0"
 slf4jVersion = "2.0.16"
-springSecurityVersion = "7.0.0-M3"
-springSessionVersion = "4.0.0-M2"
+springSecurityVersion = "7.0.0"
+springSessionVersion = "4.0.0"
 springShellVersion = "1.2.0.RELEASE"
-springVersion = "7.0.0-M9"
+springVersion = "7.0.1"
 
 [libraries]
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertjVersion" }
@@ -40,8 +40,8 @@ log4j-over-slf4j = { module = "org.slf4j:log4j-over-slf4j", version.ref = "slf4j
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logbackVersion" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockitoVersion" }
 multithreadedtc = { module = "edu.umd.cs.mtc:multithreadedtc", version.ref = "multithreadedtcVersion" }
-spring-data-gemfire = { module = "com.vmware.gemfire:spring-data-4.0-gemfire-10.3", version.ref ="springDataGemFireVersion" }
-spring-data-gemfire-test-framework = { module = "com.vmware.gemfire:spring-data-4.0-gemfire-test-framework-10.3", version.ref = "springDataGemFireVersion" }
+spring-data-gemfire = { module = "com.vmware.gemfire:spring-data-4.0-gemfire-10.2", version.ref ="springDataGemFireVersion" }
+spring-data-gemfire-test-framework = { module = "com.vmware.gemfire:spring-data-4.0-gemfire-test-framework-10.2", version.ref = "springDataGemFireVersion" }
 spring-framework-bom = { module = "org.springframework:spring-framework-bom", version.ref = "springVersion" }
 spring-security-bom = { module = "org.springframework.security:spring-security-bom", version.ref = "springSecurityVersion" }
 spring-session-core = { module = "org.springframework.session:spring-session-core", version.ref = "springSessionVersion" }
