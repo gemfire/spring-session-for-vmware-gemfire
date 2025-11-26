@@ -14,10 +14,10 @@ mockitoVersion = "5.14.2"
 multithreadedtcVersion = "1.01"
 nebulaFacetVersion = "11.0.0"
 slf4jVersion = "2.0.16"
-springSecurityVersion = "7.0.0-M3"
-springSessionVersion = "4.0.0-M2"
+springSecurityVersion = "7.0.0"
+springSessionVersion = "4.0.0"
 springShellVersion = "1.2.0.RELEASE"
-springVersion = "7.0.0-M9"
+springVersion = "7.0.1"
 
 [libraries]
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertjVersion" }
