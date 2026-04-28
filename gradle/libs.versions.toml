@@ -2,7 +2,7 @@
 assertjVersion = "3.23.1"
 awaitilityVersion = "4.2.2"
 benManesVersions = "0.50.0"
-gemFireTestContainersVersion = "2.3.3"
+gemFireTestContainersVersion = "3.0.0"
 jakartaAnnotationApiVersion = "2.1.1"
 jakartaServletApiVersion = "6.0.0"
 jsr305Version = "3.0.2"
