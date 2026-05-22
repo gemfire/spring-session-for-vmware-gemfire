@@ -1,23 +1,25 @@
 [versions]
-assertjVersion = "3.23.1"
-awaitilityVersion = "4.2.2"
-benManesVersions = "0.50.0"
+assertjVersion = "3.27.7"
+awaitilityVersion = "4.3.0"
+benManesVersions = "0.54.0"
 gemFireTestContainersVersion = "3.0.0"
-jakartaAnnotationApiVersion = "2.1.1"
-jakartaServletApiVersion = "6.0.0"
+gemfireVersion = "10.3.0"
+jakartaAnnotationApiVersion = "3.0.0"
+jakartaServletApiVersion = "6.1.0"
 jsr305Version = "3.0.2"
 junitVersion = "4.13.2"
-littlerobotsVersionCatalogUpdate = "0.8.5"
-logbackVersion = "1.5.12"
-lombokVersion = "8.6"
-mockitoVersion = "5.14.2"
+littlerobotsVersionCatalogUpdate = "1.1.0"
+logbackVersion = "1.5.32"
+lombokVersion = "9.5.0"
+mockitoVersion = "5.23.0"
 multithreadedtcVersion = "1.01"
-nebulaFacetVersion = "11.0.0"
-slf4jVersion = "2.0.16"
-springSecurityVersion = "7.0.0"
-springSessionVersion = "4.0.0"
+nebulaFacetVersion = "13.1.2"
+slf4jVersion = "2.0.18"
+springDataGemFireVersion = "2.0.0"
+springSecurityVersion = "7.0.5"
+springSessionVersion = "4.0.3"
 springShellVersion = "1.2.0.RELEASE"
-springVersion = "7.0.1"
+springVersion = "7.0.7"
 
 [libraries]
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertjVersion" }
@@ -40,7 +42,7 @@ log4j-over-slf4j = { module = "org.slf4j:log4j-over-slf4j", version.ref = "slf4j
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logbackVersion" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockitoVersion" }
 multithreadedtc = { module = "edu.umd.cs.mtc:multithreadedtc", version.ref = "multithreadedtcVersion" }
-spring-data-gemfire = { module = "com.vmware.gemfire:spring-data-4.0-gemfire-10.3", version.ref ="springDataGemFireVersion" }
+spring-data-gemfire = { module = "com.vmware.gemfire:spring-data-4.0-gemfire-10.3", version.ref = "springDataGemFireVersion" }
 spring-data-gemfire-test-framework = { module = "com.vmware.gemfire:spring-data-4.0-gemfire-test-framework-10.3", version.ref = "springDataGemFireVersion" }
 spring-framework-bom = { module = "org.springframework:spring-framework-bom", version.ref = "springVersion" }
 spring-security-bom = { module = "org.springframework.security:spring-security-bom", version.ref = "springSecurityVersion" }
