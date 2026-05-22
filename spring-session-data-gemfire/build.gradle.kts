@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 Broadcom. All rights reserved.
+ * Copyright 2023-2026 Broadcom. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -43,14 +43,16 @@ tasks.withType<JavaCompile>().configureEach {
   options.compilerArgs.add("-parameters")
 }
 
+val baseGemFireVersion: String by project
+
 tasks.named<Javadoc>("javadoc") {
   title =
-    "Spring Session 4.0 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
+    "Spring Session 4.0 for VMware GemFire ${baseGemFireVersion} Java API Reference"
   isFailOnError = false
 }
 
 publishingDetails {
-  artifactName.set("spring-session-4.0-gemfire-${getGemFireBaseVersion()}")
+  artifactName.set("spring-session-4.0-gemfire-${baseGemFireVersion}")
   longName.set("Spring Session VMware GemFire")
   description.set("Spring Session 4.0 For VMware GemFire")
 }
@@ -120,8 +122,9 @@ dependencies {
 }
 
 repositories {
-  mavenCentral()
-  maven { url = uri("https://repo.spring.io/milestone") }
+  if (providers.gradleProperty("useMavenCentral").getOrElse("false").toBoolean()) {
+    mavenCentral()
+  }
   val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
   if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
     additionalMavenRepoURLs.split(",").forEach {
@@ -150,23 +153,6 @@ tasks {
   named<ProcessResources>("processIntegTestResources") {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
   }
-}
-
-private fun getSpringSessionBaseVersion(): String {
-  return getBaseVersion(property("springSessionVersion").toString())
-}
-
-private fun getGemFireBaseVersion(): String {
-  val gemfireVersion: String by project
-  return getBaseVersion(gemfireVersion)
-}
-
-private fun getBaseVersion(version: String): String {
-  val split = version.split(".")
-  if (split.size < 2) {
-    throw RuntimeException("version is malformed")
-  }
-  return "${split[0]}.${split[1]}"
 }
 
 tasks.register<Jar>("testJar") {

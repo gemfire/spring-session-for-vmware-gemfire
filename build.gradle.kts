@@ -1,9 +1,11 @@
 /*
- * Copyright 2023-2024 Broadcom. All rights reserved.
+ * Copyright 2023-2026 Broadcom. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask
+import nl.littlerobots.vcu.plugin.resolver.VersionSelectors
+import nl.littlerobots.vcu.plugin.versionSelector
 
 plugins {
   id("java")
@@ -13,6 +15,12 @@ plugins {
   alias(libs.plugins.ben.manes.versions)
   alias(libs.plugins.littlerobots.version.catalog.update)
   id("gemfire-artifactory")
+}
+
+repositories {
+  if (providers.gradleProperty("useMavenCentral").getOrElse("false").toBoolean()) {
+    mavenCentral()
+  }
 }
 
 // Suppress warning from gemfire-artifactory plugin. We need the module to be on this project in order to get buildInfo
@@ -44,12 +52,11 @@ versionCatalogUpdate {
   }
   keep {
     keepUnusedVersions = true
-    // keep all libraries that aren't used in the project
-    keepUnusedLibraries = true
-    // keep all plugins that aren't used in the project
-    keepUnusedPlugins = true
   }
 
+  versionSelector {
+    isPatch(it.candidate.version, it.currentVersion) // adjust property names to match API if needed
+  }
 }
 
 tasks.withType<DependencyUpdatesTask> {
