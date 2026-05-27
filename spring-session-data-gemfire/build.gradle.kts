@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 Broadcom. All rights reserved.
+ * Copyright 2023-2026 Broadcom. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,7 +9,6 @@ import com.google.cloud.storage.BlobInfo
 import com.google.cloud.storage.StorageOptions
 import nebula.plugin.responsible.TestFacetDefinition
 import java.io.FileInputStream
-import java.util.*
 
 buildscript {
   dependencies {
@@ -43,14 +42,16 @@ tasks.withType<JavaCompile>().configureEach {
   options.compilerArgs.add("-parameters")
 }
 
+val baseGemFireVersion: String by project
+
 tasks.named<Javadoc>("javadoc") {
   title =
-    "Spring Session 3.5 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
+    "Spring Session 3.5 for VMware GemFire ${baseGemFireVersion} Java API Reference"
   isFailOnError = false
 }
 
 publishingDetails {
-  artifactName.set("spring-session-3.5-gemfire-${getGemFireBaseVersion()}")
+  artifactName.set("spring-session-3.5-gemfire-${baseGemFireVersion}")
   longName.set("Spring Session VMware GemFire")
   description.set("Spring Session For VMware GemFire")
 }
@@ -120,8 +121,9 @@ dependencies {
 }
 
 repositories {
-  mavenCentral()
-  maven { url = uri("https://repo.spring.io/milestone") }
+  if (providers.gradleProperty("useMavenCentral").getOrElse("false").toBoolean()) {
+    mavenCentral()
+  }
   val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
   if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
     additionalMavenRepoURLs.split(",").forEach {
@@ -130,20 +132,6 @@ repositories {
       }
     }
   }
-  val listOrderedRepos= LinkedList<ArtifactRepository>()
-  val values = project.repositories.asMap.values
-  values.forEach { artifactRepository ->
-    if (artifactRepository is MavenArtifactRepository) {
-      if (artifactRepository.url.toString().startsWith("gcs:")) {
-        listOrderedRepos.addFirst(artifactRepository)
-      } else {
-        listOrderedRepos.add(artifactRepository)
-      }
-    }
-  }
-
-  project.repositories.clear()
-  project.repositories.addAll(listOrderedRepos)
 }
 
 tasks {
@@ -166,22 +154,6 @@ tasks {
   }
 }
 
-private fun getSpringSessionBaseVersion(): String {
-  return getBaseVersion(property("springSessionVersion").toString())
-}
-
-private fun getGemFireBaseVersion(): String {
-  val gemfireVersion: String by project
-  return getBaseVersion(gemfireVersion)
-}
-
-private fun getBaseVersion(version: String): String {
-  val split = version.split(".")
-  if (split.size < 2) {
-    throw RuntimeException("version is malformed")
-  }
-  return "${split[0]}.${split[1]}"
-}
 
 tasks.register<Jar>("testJar") {
   from(sourceSets.getByName("integTest").output)

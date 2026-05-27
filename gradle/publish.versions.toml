@@ -1,5 +1,5 @@
 [versions]
-kotlinGradlePluginVersion = "2.1.21"
+kotlinGradlePluginVersion = "2.2.21"
 
 
 [libraries]
