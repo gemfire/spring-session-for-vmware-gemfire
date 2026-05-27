@@ -4,51 +4,57 @@ apacheLogging = "2.14.1"
 apacheTaglibsVersion = "1.2.5"
 assertjVersion = "3.23.1"
 awaitilityVersion = "4.2.2"
-benManesVersions = "0.50.0"
+benManesVersions = "0.54.0"
 gemFireTestContainersVersion = "3.0.0"
-jakartaServletApiVersion = "6.0.0"
-jakartaServletJspJstlApiVersion = "3.0.0"
+gemfireVersion = "10.2.4"
 jakartaAnnotationApiVersion = "2.1.1"
+jakartaServletApiVersion = "6.0.0"
+jakartaServletJspJstlApiVersion = "3.0.2"
 jsr305Version = "3.0.2"
 junitVersion = "4.13.2"
-littlerobotsVersionCatalogUpdate = "0.8.5"
-logbackVersion = "1.5.12"
+littlerobotsVersionCatalogUpdate = "1.1.0"
+logbackVersion = "1.5.33"
 lombokVersion = "8.6"
 mockitoVersion = "5.14.2"
 multithreadedtcVersion = "1.01"
+nebulaFacetVersion = "11.0.0"
 seleniumHTMLDriverVersion = "3.61.0"
 seleniumVersion = "4.5.3"
-slf4jVersion = "2.0.16"
-springSecurityVersion = "6.5.6"
-springSessionVersion = "3.5.3"
+slf4jVersion = "2.0.18"
+springDataGemFireVersion = "1.0.0"
+springSecurityVersion = "6.5.10"
+springSessionVersion = "3.5.6"
 springShellVersion = "1.2.0.RELEASE"
-springVersion = "6.2.12"
+springVersion = "6.2.18"
 webjarsBootstrapVersion = "2.3.2"
 webjarsJqueryVersion = "1.12.4"
 webjarsLocatorCoreVersion = "0.32"
 webjarsLocatorVersion = "0.32-1"
 webjarsTaglibVersion = "0.3"
 
-nebulaFacetVersion = "11.0.0"
-
 [libraries]
-
-spring-framework-bom = { module = "org.springframework:spring-framework-bom", version.ref = "springVersion" }
-spring-security-bom = { module = "org.springframework.security:spring-security-bom", version.ref = "springSecurityVersion" }
-
 antlr = { module = "antlr:antlr", version.ref = "antlrVersion" }
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertjVersion" }
 awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitilityVersion" }
-
 findbugs-jsr305 = { module = "com.google.code.findbugs:jsr305", version.ref = "jsr305Version" }
+gemfire-core = { module = "com.vmware.gemfire:gemfire-core", version.ref = "gemfireVersion" }
+gemfire-cq = { module = "com.vmware.gemfire:gemfire-cq", version.ref = "gemfireVersion" }
+gemfire-deployment-chained-classloader = { module = "com.vmware.gemfire:gemfire-deployment-chained-classloader", version.ref = "gemfireVersion" }
+gemfire-gfsh = { module = "com.vmware.gemfire:gemfire-gfsh", version.ref = "gemfireVersion" }
+gemfire-logging = { module = "com.vmware.gemfire:gemfire-logging", version.ref = "gemfireVersion" }
+gemfire-tcp-messenger = { module = "com.vmware.gemfire:gemfire-tcp-messenger", version.ref = "gemfireVersion" }
+gemfire-tcp-server = { module = "com.vmware.gemfire:gemfire-tcp-server", version.ref = "gemfireVersion" }
+gemfire-testcontainers = { module = "dev.gemfire:gemfire-testcontainers", version.ref = "gemFireTestContainersVersion" }
+gemfire-version = { module = "com.vmware.gemfire:gemfire-version", version.ref = "gemfireVersion" }
+gemfire-wan = { module = "com.vmware.gemfire:gemfire-wan", version.ref = "gemfireVersion" }
 jakarta-annotation-api = { module = "jakarta.annotation:jakarta.annotation-api", version.ref = "jakartaAnnotationApiVersion" }
 jakarta-servlet-api = { module = "jakarta.servlet:jakarta.servlet-api", version.ref = "jakartaServletApiVersion" }
 jakarts-servlet-jsp-jstl-api = { module = "jakarta.servlet.jsp.jstl:jakarta.servlet.jsp.jstl-api", version.ref = "jakartaServletJspJstlApiVersion" }
 jcl-over-slf4j = { module = "org.slf4j:jcl-over-slf4j", version.ref = "slf4jVersion" }
 junit = { module = "junit:junit", version.ref = "junitVersion" }
-logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logbackVersion" }
 log4j-over-slf4j = { module = "org.slf4j:log4j-over-slf4j", version.ref = "slf4jVersion" }
 log4j-to-slf4j = { module = "org.apache.logging.log4j:log4j-to-slf4j", version.ref = "apacheLogging" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logbackVersion" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockitoVersion" }
 multithreadedtc = { module = "edu.umd.cs.mtc:multithreadedtc", version.ref = "multithreadedtcVersion" }
 selenium-api = { module = "org.seleniumhq.selenium:selenium-api", version.ref = "seleniumVersion" }
@@ -58,38 +64,37 @@ selenium-support = { module = "org.seleniumhq.selenium:selenium-support", versio
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4jVersion" }
 spring-data-gemfire = { module = "com.vmware.gemfire:spring-data-3.5-gemfire-10.2", version.ref = "springDataGemFireVersion" }
 spring-data-gemfire-test-framework = { module = "com.vmware.gemfire:spring-data-3.5-gemfire-test-framework-10.2", version.ref = "springDataGemFireVersion" }
-spring-tx = { module = "org.springframework:spring-tx", version.ref = "springVersion" }
+spring-framework-bom = { module = "org.springframework:spring-framework-bom", version.ref = "springVersion" }
+spring-security-bom = { module = "org.springframework.security:spring-security-bom", version.ref = "springSecurityVersion" }
 spring-security-test = { module = "org.springframework.security:spring-security-test", version.ref = "springSecurityVersion" }
-spring-shell = { module = "org.springframework.shell:spring-shell", version.ref = "springShellVersion" }
 spring-session-core = { module = "org.springframework.session:spring-session-core", version.ref = "springSessionVersion" }
-taglibs-standard-jstel = { module = "org.apache.taglibs:taglibs-standard-jstlel", version.ref = "apacheTaglibsVersion" }
+spring-shell = { module = "org.springframework.shell:spring-shell", version.ref = "springShellVersion" }
+spring-tx = { module = "org.springframework:spring-tx", version.ref = "springVersion" }
 taglibs-standard-impl = { module = "org.apache.taglibs:taglibs-standard-impl", version.ref = "apacheTaglibsVersion" }
+taglibs-standard-jstel = { module = "org.apache.taglibs:taglibs-standard-jstlel", version.ref = "apacheTaglibsVersion" }
 taglibs-standard-spec = { module = "org.apache.taglibs:taglibs-standard-spec", version.ref = "apacheTaglibsVersion" }
-
 webjars-bootstrap = { module = "org.webjars:bootstrap", version.ref = "webjarsBootstrapVersion" }
 webjars-jquery = { module = "org.webjars:jquery", version.ref = "webjarsJqueryVersion" }
-webjars-locator-core = { module = "org.webjars:webjars-locator-core", version.ref = "webjarsLocatorCoreVersion" }
 webjars-locator = { module = "org.webjars:webjars-locator", version.ref = "webjarsLocatorVersion" }
+webjars-locator-core = { module = "org.webjars:webjars-locator-core", version.ref = "webjarsLocatorCoreVersion" }
 webjars-taglib = { module = "org.webjars:webjars-taglib", version.ref = "webjarsTaglibVersion" }
 
-gemfire-core = { module = "com.vmware.gemfire:gemfire-core", version.ref = "gemfireVersion" }
-gemfire-logging = { module = "com.vmware.gemfire:gemfire-logging", version.ref = "gemfireVersion" }
-gemfire-cq = { module = "com.vmware.gemfire:gemfire-cq", version.ref = "gemfireVersion" }
-gemfire-wan = { module = "com.vmware.gemfire:gemfire-wan", version.ref = "gemfireVersion" }
-gemfire-gfsh = { module = "com.vmware.gemfire:gemfire-gfsh", version.ref = "gemfireVersion" }
-gemfire-version = { module = "com.vmware.gemfire:gemfire-version", version.ref = "gemfireVersion" }
-gemfire-tcp-server = { module = "com.vmware.gemfire:gemfire-tcp-server", version.ref = "gemfireVersion" }
-gemfire-tcp-messenger = { module = "com.vmware.gemfire:gemfire-tcp-messenger", version.ref = "gemfireVersion" }
-gemfire-deployment-chained-classloader = { module = "com.vmware.gemfire:gemfire-deployment-chained-classloader", version.ref = "gemfireVersion" }
-
-gemfire-testcontainers = { module = "dev.gemfire:gemfire-testcontainers", version.ref = "gemFireTestContainersVersion" }
-
 [bundles]
-gemfire-dependencies = ["gemfire-core", "gemfire-cq", "gemfire-logging", "gemfire-deployment-chained-classloader", "gemfire-gfsh", "gemfire-tcp-server", "gemfire-wan", "gemfire-tcp-messenger","gemfire-version"]
+gemfire-dependencies = [
+    "gemfire-core",
+    "gemfire-cq",
+    "gemfire-deployment-chained-classloader",
+    "gemfire-gfsh",
+    "gemfire-logging",
+    "gemfire-tcp-messenger",
+    "gemfire-tcp-server",
+    "gemfire-version",
+    "gemfire-wan",
+]
 
 [plugins]
+ben-manes-versions = { id = "com.github.ben-manes.versions", version.ref = "benManesVersions" }
+littlerobots-version-catalog-update = { id = "nl.littlerobots.version-catalog-update", version.ref = "littlerobotsVersionCatalogUpdate" }
 lombok = { id = "io.freefair.lombok", version.ref = "lombokVersion" }
 nebula-facet = { id = "com.netflix.nebula.facet", version.ref = "nebulaFacetVersion" }
 nebula-facet-integration = { id = "com.netflix.nebula.integtest-standalone", version.ref = "nebulaFacetVersion" }
-ben-manes-versions = { id = "com.github.ben-manes.versions", version.ref = "benManesVersions" }
-littlerobots-version-catalog-update = { id = "nl.littlerobots.version-catalog-update", version.ref = "littlerobotsVersionCatalogUpdate" }

@@ -1,32 +1,12 @@
 /*
- * Copyright 2024-2026 Broadcom. All rights reserved.
+ * Copyright 2026 Broadcom. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
-plugins {
-  id("groovy-gradle-plugin")
-  `kotlin-dsl`
-}
-
-repositories {
-  addGemFireRepositories(
-    providers,
-    addMavenCentral = providers.gradleProperty("useMavenCentral").getOrElse("false").toBoolean()
-  )
-}
-
-dependencies {
-  implementation(libs.kotlin.gradle.plugin)
-  implementation(gradleApi())
-  implementation("org.jfrog.buildinfo:build-info-extractor-gradle:5.2.2")
-}
-
-gradlePlugin {
-  plugins.register("gemfire-artifactory") {
-    id = "gemfire-artifactory"
-    implementationClass = "com.vmware.gemfire.gradle.ArtifactoryPlugin"
-  }
-}
+import org.gradle.api.artifacts.dsl.RepositoryHandler
+import org.gradle.api.provider.ProviderFactory
+import java.io.File
+import java.net.URI
 
 fun RepositoryHandler.addGemFireRepositories(
   providers: ProviderFactory,
@@ -41,7 +21,7 @@ fun RepositoryHandler.addGemFireRepositories(
   (repos["repositories"] as List<*>).filterNotNull().map { it as Map<*, *> }
     .forEach { entry ->
       maven {
-        url = uri(entry["url"]!! as String)
+        url = URI(entry["url"]!! as String)
         if (!entry["username"]?.toString().isNullOrBlank()) {
           credentials {
             username = entry["username"] as String
