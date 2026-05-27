@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 Broadcom. All rights reserved.
+ * Copyright 2023-2026 Broadcom. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -7,7 +7,7 @@ import com.vmware.gemfire.publishing.extension.ManifestExtension
 import org.gradle.jvm.tasks.Jar
 import java.net.URI
 
-// Copyright (c) VMware, Inc. 2023-2024. All rights reserved.
+// Copyright (c) VMware, Inc. 2023-2026. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 plugins {
@@ -19,7 +19,7 @@ plugins {
 project.ext.set("constrainVersionInBom", true)
 
 val license = """
-  Copyright (c) VMware, Inc. 2023-2024. All rights reserved.
+  Copyright (c) VMware, Inc. 2023-2026. All rights reserved.
   SPDX-License-Identifier: Apache-2.0
   """
 
