@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Broadcom. All rights reserved.
+ * Copyright 2024-2026 Broadcom. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,8 +8,27 @@ plugins {
 }
 
 repositories {
-  mavenCentral()
-  gradlePluginPortal()
+  def repositoryConfigFilePath = providers.gradleProperty("spring.gemfire.repositories").getOrElse(
+    providers.environmentVariable("HOME").get() + "/.gradle/gradleRepositories.json"
+  )
+
+  def jsonString = new File(repositoryConfigFilePath).getText("UTF-8")
+  def repoConfig = new groovy.json.JsonSlurper().parseText(jsonString)
+  ((List) repoConfig["repositories"]).findAll { it != null }.each { entry ->
+    maven {
+      url = uri(entry["url"] as String)
+      if (entry["username"]?.toString()?.trim()) {
+        credentials {
+          username = entry["username"] as String
+          password = entry["password"] as String
+        }
+      }
+    }
+  }
+
+  if (providers.gradleProperty("useMavenCentral").getOrElse("false").toBoolean()) {
+    mavenCentral()
+  }
 }
 
 dependencies {
