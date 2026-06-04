@@ -9,7 +9,6 @@ import com.google.cloud.storage.BlobInfo
 import com.google.cloud.storage.StorageOptions
 import nebula.plugin.responsible.TestFacetDefinition
 import java.io.FileInputStream
-import java.util.LinkedList
 
 buildscript {
     dependencies {
@@ -113,7 +112,6 @@ sourceSets {
 }
 
 repositories {
-  mavenCentral()
   val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
   if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
     additionalMavenRepoURLs.split(",").forEach {
@@ -122,20 +120,9 @@ repositories {
       }
     }
   }
-  val listOrderedRepos= LinkedList<ArtifactRepository>()
-  val values = project.repositories.asMap.values
-  values.forEach { artifactRepository ->
-    if (artifactRepository is MavenArtifactRepository) {
-      if (artifactRepository.url.toString().startsWith("gcs:")) {
-        listOrderedRepos.addFirst(artifactRepository)
-      } else {
-        listOrderedRepos.add(artifactRepository)
-      }
-    }
+  if (providers.gradleProperty("useMavenCentral").getOrElse("false").toBoolean()) {
+    mavenCentral()
   }
-
-  project.repositories.clear()
-  project.repositories.addAll(listOrderedRepos)
 }
 
 tasks {

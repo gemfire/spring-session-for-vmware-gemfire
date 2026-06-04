@@ -8,8 +8,25 @@ plugins {
 }
 
 repositories {
-  mavenCentral()
-  gradlePluginPortal()
+  def repositoryConfigFilePath = providers.gradleProperty("spring.gemfire.repositories").getOrElse(
+    providers.environmentVariable("HOME").get() + "/.gradle/gradleRepositories.json"
+  )
+  def jsonString = new File(repositoryConfigFilePath).text
+  def repositories = new groovy.json.JsonSlurper().parseText(jsonString)
+  repositories.repositories.each { entry ->
+    maven {
+      url entry.url
+      if (entry.username) {
+        credentials {
+          username entry.username
+          password entry.password
+        }
+      }
+    }
+  }
+  if (providers.gradleProperty("useMavenCentral").getOrElse("false").toBoolean()) {
+    mavenCentral()
+  }
 }
 
 dependencies {
