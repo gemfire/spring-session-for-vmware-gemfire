@@ -53,6 +53,7 @@ public class ConcurrentSessionOperationsUsingClientProxyRegionIntegrationTests
 		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
 				.withCacheXml(GemFireCluster.ALL_GLOB, "/session-serializer-cache.xml")
 				.withClasspath(GemFireCluster.ALL_GLOB, System.getProperty("TEST_JAR_PATH"))
+				.withConfiguration("server-*", container -> container.withStartupAttempts(3))
 				.withGfsh(false, "create region --type=PARTITION --name=ClusteredSpringSessions");
 
 		gemFireCluster.acceptLicense().start();

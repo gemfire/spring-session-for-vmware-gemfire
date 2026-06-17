@@ -24,7 +24,6 @@ plugins {
   alias(libs.plugins.nebula.facet)
   alias(libs.plugins.nebula.facet.integration)
   id("gemfire-repo-artifact-publishing")
-  id("commercial-repositories")
   id("gemfire-artifactory")
 }
 
@@ -45,14 +44,17 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.named<Javadoc>("javadoc") {
   title =
-    "Spring Session 4.0 for VMware GemFire ${getGemFireBaseVersion()} Java API Reference"
+    "Spring Session $baseSpringVersion for VMware GemFire $baseGemFireVersion Java API Reference"
   isFailOnError = false
 }
 
+val baseGemFireVersion: String by project
+val baseSpringVersion: String by project
+
 publishingDetails {
-  artifactName.set("spring-session-4.0-gemfire-${getGemFireBaseVersion()}")
+  artifactName.set("spring-session-$baseSpringVersion-gemfire-$baseGemFireVersion")
   longName.set("Spring Session VMware GemFire")
-  description.set("Spring Session 4.0 For VMware GemFire")
+  description.set("Spring Session $baseSpringVersion For VMware GemFire")
 }
 
 facets {
@@ -119,19 +121,6 @@ dependencies {
   }
 }
 
-repositories {
-  mavenCentral()
-  maven { url = uri("https://repo.spring.io/milestone") }
-  val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
-  if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
-    additionalMavenRepoURLs.split(",").forEach {
-      project.repositories.maven {
-        this.url = uri(it)
-      }
-    }
-  }
-}
-
 tasks {
   register("copyJavadocsToBucket") {
     dependsOn(named("javadocJar"))
@@ -150,23 +139,6 @@ tasks {
   named<ProcessResources>("processIntegTestResources") {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
   }
-}
-
-private fun getSpringSessionBaseVersion(): String {
-  return getBaseVersion(property("springSessionVersion").toString())
-}
-
-private fun getGemFireBaseVersion(): String {
-  val gemfireVersion: String by project
-  return getBaseVersion(gemfireVersion)
-}
-
-private fun getBaseVersion(version: String): String {
-  val split = version.split(".")
-  if (split.size < 2) {
-    throw RuntimeException("version is malformed")
-  }
-  return "${split[0]}.${split[1]}"
 }
 
 tasks.register<Jar>("testJar") {
