@@ -24,7 +24,6 @@ plugins {
   alias(libs.plugins.nebula.facet)
   alias(libs.plugins.nebula.facet.integration)
   id("gemfire-repo-artifact-publishing")
-  id("commercial-repositories")
   id("gemfire-artifactory")
 }
 
@@ -44,17 +43,18 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 val baseGemFireVersion: String by project
+val baseSpringVersion: String by project
 
 tasks.named<Javadoc>("javadoc") {
   title =
-    "Spring Session 4.0 for VMware GemFire ${baseGemFireVersion} Java API Reference"
+    "Spring Session $baseSpringVersion for VMware GemFire $baseGemFireVersion Java API Reference"
   isFailOnError = false
 }
 
 publishingDetails {
-  artifactName.set("spring-session-4.0-gemfire-${baseGemFireVersion}")
+  artifactName.set("spring-session-$baseSpringVersion-gemfire-$baseGemFireVersion")
   longName.set("Spring Session VMware GemFire")
-  description.set("Spring Session 4.0 For VMware GemFire")
+  description.set("Spring Session $baseSpringVersion For VMware GemFire")
 }
 
 facets {
@@ -118,20 +118,6 @@ dependencies {
   testJarClasspath("org.springframework.security:spring-security-core")
   testJarClasspath(libs.spring.data.gemfire) {
     exclude(group = "org.bouncycastle", module = "bcprov-jdk18on")
-  }
-}
-
-repositories {
-  if (providers.gradleProperty("useMavenCentral").getOrElse("false").toBoolean()) {
-    mavenCentral()
-  }
-  val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
-  if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
-    additionalMavenRepoURLs.split(",").forEach {
-      project.repositories.maven {
-        this.url = uri(it)
-      }
-    }
   }
 }
 
