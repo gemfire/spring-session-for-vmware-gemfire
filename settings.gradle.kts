@@ -52,6 +52,9 @@ dependencyResolutionManagement {
         create("libs") {
             overrideProperty("gemfireVersion")
             overrideProperty("springDataGemFireVersion")
+            overrideProperty("springVersion")
+            overrideProperty("springSecurityVersion")
+            overrideProperty("springSessionVersion")
         }
     }
 }
