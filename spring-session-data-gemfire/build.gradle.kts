@@ -9,6 +9,7 @@ import com.google.cloud.storage.BlobInfo
 import com.google.cloud.storage.StorageOptions
 import nebula.plugin.responsible.TestFacetDefinition
 import java.io.FileInputStream
+import java.util.*
 
 buildscript {
   dependencies {
@@ -23,7 +24,6 @@ plugins {
   alias(libs.plugins.nebula.facet)
   alias(libs.plugins.nebula.facet.integration)
   id("gemfire-repo-artifact-publishing")
-  id("commercial-repositories")
   id("gemfire-artifactory")
 }
 
@@ -43,17 +43,18 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 val baseGemFireVersion: String by project
+val baseSpringVersion: String by project
 
 tasks.named<Javadoc>("javadoc") {
   title =
-    "Spring Session 3.5 for VMware GemFire ${baseGemFireVersion} Java API Reference"
+    "Spring Session $baseSpringVersion for VMware GemFire $baseGemFireVersion Java API Reference"
   isFailOnError = false
 }
 
 publishingDetails {
-  artifactName.set("spring-session-3.5-gemfire-${baseGemFireVersion}")
+  artifactName.set("spring-session-$baseSpringVersion-gemfire-$baseGemFireVersion")
   longName.set("Spring Session VMware GemFire")
-  description.set("Spring Session For VMware GemFire")
+  description.set("Spring Session $baseSpringVersion For VMware GemFire")
 }
 
 facets {
@@ -64,8 +65,11 @@ facets {
   }
 }
 
-sourceSets{
-  named("integTest"){
+// nebulaFacetVersion 11.0.0 (this branch) does not auto-wire the integTest facet's
+// source directories the way develop's newer nebula-facet plugin does; without this,
+// compileIntegTestJava silently resolves to NO-SOURCE despite files existing on disk.
+sourceSets {
+  named("integTest") {
     java.srcDir(file("src/integrationTest/java"))
     resources.srcDir(file("src/integrationTest/resources"))
   }
@@ -76,7 +80,7 @@ dependencies {
   implementation(platform(libs.spring.security.bom))
 
   implementation("org.springframework:spring-context-support")
-  implementation("org.springframework:spring-jcl")
+//  implementation("org.springframework:spring-jcl")
 
   api(libs.spring.data.gemfire)
   api(libs.spring.session.core)
@@ -94,26 +98,27 @@ dependencies {
 
   testImplementation(libs.bundles.gemfire.dependencies)
 
-  testCompileOnly(libs.jakarta.servlet.api)
-  testImplementation(libs.multithreadedtc)
-  testImplementation(libs.spring.data.gemfire.test.framework)
-  testImplementation(libs.assertj.core)
-  testImplementation(libs.junit)
-  testImplementation(libs.mockito.core)
-  testImplementation(libs.logback.classic)
-  testImplementation(libs.log4j.over.slf4j)
-  testImplementation("org.springframework:spring-test")
-  testImplementation("org.springframework:spring-web")
+    testImplementation(libs.awaitility)
+    testCompileOnly(libs.jakarta.servlet.api)
+    testImplementation(libs.multithreadedtc)
+    testImplementation(libs.spring.data.gemfire.test.framework)
+    testImplementation(libs.assertj.core)
+    testImplementation(libs.junit)
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.logback.classic)
+    testImplementation(libs.log4j.over.slf4j)
+    testImplementation("org.springframework:spring-test")
+    testImplementation("org.springframework:spring-web")
 
   "integTestImplementation"(libs.bundles.gemfire.dependencies)
   "integTestImplementation"(libs.junit)
   "integTestImplementation"(libs.assertj.core)
+  "integTestImplementation"(libs.mockito.core)
+  "integTestImplementation"(libs.multithreadedtc)
   "integTestImplementation"(libs.logback.classic)
   "integTestImplementation"(libs.log4j.over.slf4j)
   "integTestImplementation"(libs.findbugs.jsr305)
   "integTestImplementation"(libs.spring.shell)
-  "integTestImplementation"(libs.mockito.core)
-  "integTestImplementation"(libs.multithreadedtc)
   "integTestImplementation"("org.springframework:spring-test")
   "integTestImplementation"(libs.spring.data.gemfire.test.framework)
   "integTestImplementation"(libs.gemfire.testcontainers)
@@ -126,28 +131,13 @@ dependencies {
   }
 }
 
-repositories {
-  if (providers.gradleProperty("useMavenCentral").getOrElse("false").toBoolean()) {
-    mavenCentral()
-  }
-  val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
-  if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
-    additionalMavenRepoURLs.split(",").forEach {
-      project.repositories.maven {
-        this.url = uri(it)
-      }
-    }
-  }
-}
-
 tasks {
   register("copyJavadocsToBucket") {
     dependsOn(named("javadocJar"))
     doLast {
       val storage =
         StorageOptions.newBuilder().setProjectId(project.properties["docsGCSProject"].toString()).setCredentials(
-          GoogleCredentials.fromStream(FileInputStream(project.properties["docsGCSProjectCredentials"].toString()))
-        ).build().getService()
+          GoogleCredentials.fromStream(FileInputStream(project.properties["docsGCSProjectCredentials"].toString()))).build().getService()
       val blobId = BlobId.of(
         project.properties["docsGCSBucket"].toString(),
         "${publishingDetails.artifactName.get()}/${project.version}/${named("javadocJar").get().outputs.files.singleFile.name}"
@@ -169,10 +159,10 @@ tasks.register<Jar>("testJar") {
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
-tasks.named<Test>("integrationTest", Test::class.java) {
+tasks.named<Test>("integrationTest",Test::class.java) {
   dependsOn("testJar")
   forkEvery = 1
-  maxParallelForks = 4
+  maxParallelForks = 1
   this.outputs.upToDateWhen { _ -> false }
 
   val springTestGemfireDockerImage: String by project
