@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 Broadcom. All rights reserved.
+ * Copyright 2023-2026 Broadcom. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -52,6 +52,9 @@ dependencyResolutionManagement {
         create("libs") {
             overrideProperty("gemfireVersion")
             overrideProperty("springDataGemFireVersion")
+            overrideProperty("springVersion")
+            overrideProperty("springSecurityVersion")
+            overrideProperty("springSessionVersion")
         }
     }
 }
