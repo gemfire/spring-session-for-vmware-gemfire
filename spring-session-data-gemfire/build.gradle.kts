@@ -9,6 +9,7 @@ import com.google.cloud.storage.BlobInfo
 import com.google.cloud.storage.StorageOptions
 import nebula.plugin.responsible.TestFacetDefinition
 import java.io.FileInputStream
+import java.util.*
 
 buildscript {
   dependencies {
@@ -23,7 +24,6 @@ plugins {
   alias(libs.plugins.nebula.facet)
   alias(libs.plugins.nebula.facet.integration)
   id("gemfire-repo-artifact-publishing")
-  id("commercial-repositories")
   id("gemfire-artifactory")
 }
 
@@ -43,17 +43,18 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 val baseGemFireVersion: String by project
+val baseSpringVersion: String by project
 
 tasks.named<Javadoc>("javadoc") {
   title =
-    "Spring Session 3.5 for VMware GemFire ${baseGemFireVersion} Java API Reference"
+    "Spring Session $baseSpringVersion for VMware GemFire $baseGemFireVersion Java API Reference"
   isFailOnError = false
 }
 
 publishingDetails {
-  artifactName.set("spring-session-3.5-gemfire-${baseGemFireVersion}")
+  artifactName.set("spring-session-$baseSpringVersion-gemfire-$baseGemFireVersion")
   longName.set("Spring Session VMware GemFire")
-  description.set("Spring Session For VMware GemFire")
+  description.set("Spring Session $baseSpringVersion For VMware GemFire")
 }
 
 facets {
@@ -69,7 +70,7 @@ dependencies {
   implementation(platform(libs.spring.security.bom))
 
   implementation("org.springframework:spring-context-support")
-  implementation("org.springframework:spring-jcl")
+//  implementation("org.springframework:spring-jcl")
 
   api(libs.spring.data.gemfire)
   api(libs.spring.session.core)
@@ -120,20 +121,6 @@ dependencies {
   }
 }
 
-repositories {
-  if (providers.gradleProperty("useMavenCentral").getOrElse("false").toBoolean()) {
-    mavenCentral()
-  }
-  val additionalMavenRepoURLs = project.findProperty("additionalMavenRepoURLs").toString()
-  if (!additionalMavenRepoURLs.isNullOrBlank() && additionalMavenRepoURLs.isNotEmpty()) {
-    additionalMavenRepoURLs.split(",").forEach {
-      project.repositories.maven {
-        this.url = uri(it)
-      }
-    }
-  }
-}
-
 tasks {
   register("copyJavadocsToBucket") {
     dependsOn(named("javadocJar"))
@@ -153,7 +140,6 @@ tasks {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
   }
 }
-
 
 tasks.register<Jar>("testJar") {
   from(sourceSets.getByName("integTest").output)
