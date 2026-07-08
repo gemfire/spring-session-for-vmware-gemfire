@@ -4,7 +4,6 @@ apacheLogging = "2.14.1"
 apacheTaglibsVersion = "1.2.5"
 assertjVersion = "3.23.1"
 awaitilityVersion = "4.2.2"
-benManesVersions = "0.54.0"
 gemFireTestContainersVersion = "3.0.0"
 gemfireVersion = "10.1.7"
 jakartaAnnotationApiVersion = "2.1.1"
@@ -93,7 +92,6 @@ gemfire-dependencies = [
 ]
 
 [plugins]
-ben-manes-versions = { id = "com.github.ben-manes.versions", version.ref = "benManesVersions" }
 littlerobots-version-catalog-update = { id = "nl.littlerobots.version-catalog-update", version.ref = "littlerobotsVersionCatalogUpdate" }
 lombok = { id = "io.freefair.lombok", version.ref = "lombokVersion" }
 nebula-facet = { id = "com.netflix.nebula.facet", version.ref = "nebulaFacetVersion" }

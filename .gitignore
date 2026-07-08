@@ -108,3 +108,5 @@ tmp/*
 
 
 **/*test-read-only/*
+
+gradle/libs.versions.updates.toml
