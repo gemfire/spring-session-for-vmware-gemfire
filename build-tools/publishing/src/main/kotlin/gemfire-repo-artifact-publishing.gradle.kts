@@ -7,9 +7,6 @@ import com.vmware.gemfire.publishing.extension.ManifestExtension
 import org.gradle.jvm.tasks.Jar
 import java.net.URI
 
-// Copyright (c) VMware, Inc. 2023-2026. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-
 plugins {
     id("maven-publish")
 
@@ -53,45 +50,11 @@ publishing {
                 }
             }
             repositories {
-                maven {
-                    val mavenPushRepositoryURL = project.findProperty("mavenPushRepository")
-                    if (mavenPushRepositoryURL != null) {
-                        url = uri(mavenPushRepositoryURL)
-                        if (mavenPushRepositoryURL.toString().startsWith("gcs:")) {
-                            name = "GCS"
-                        }
-                        setGemFirePublishingCredentials(this)
-                    } else {
-                        println("WARNING: No push repository configured")
-                    }
-                }
             }
         }
     }
 }
 
-tasks.register("publishToInternalGCS") {
-    group = "publishing"
-    description = "Publishes all Maven publications to internal GCS repository."
-    dependsOn(tasks.withType<PublishToMavenRepository>().matching {
-        it.repository == publishing.repositories["GCS"]
-    })
-}
-
-fun setGemFirePublishingCredentials(
-    mavenArtifactRepository: MavenArtifactRepository
-) {
-    if (mavenArtifactRepository.url.toString().startsWith("http") || mavenArtifactRepository.url.toString()
-            .startsWith("sftp")
-    ) {
-        // Username / password credentials are only supported for http, https, and sftp repos.
-        // See the Gradle documentation on Repository Types for more information.
-        mavenArtifactRepository.credentials {
-            username = project.findProperty("gemfirePublishRepoUsername").toString()
-            password = project.findProperty("gemfirePublishRepoPassword").toString()
-        }
-    }
-}
 
 tasks.register("install") {
     dependsOn(tasks.named("publishToMavenLocal"))
