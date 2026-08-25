@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 Broadcom. All rights reserved.
+ * Copyright 2022-2026 Broadcom. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 package org.springframework.session.data.gemfire;
@@ -563,15 +563,11 @@ public abstract class AbstractGemFireOperationsSessionRepository
    * @see Session
    */
   protected void handleDeleted(String sessionId, Session session) {
-    Optional.ofNullable(session).ifPresentOrElse(session1 -> {
-      if (session.isExpired()) {
-        getSessionEventHandler()
-            .ifPresent(it -> it.afterExpired(sessionId, session));
-      } else {
-        getSessionEventHandler().ifPresent(it -> it.afterDelete(sessionId, session));
-      }
-    }, () -> getSessionEventHandler().ifPresent(it -> it.afterDelete(sessionId, session)));
-
+    if (session != null && session.isExpired()) {
+      getSessionEventHandler().ifPresent(it -> it.afterExpired(sessionId, session));
+    } else {
+      getSessionEventHandler().ifPresent(it -> it.afterDelete(sessionId, session));
+    }
   }
 
   /**
