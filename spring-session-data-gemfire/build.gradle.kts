@@ -33,7 +33,7 @@ description = "Spring Session For VMware GemFire"
 java {
   withJavadocJar()
   withSourcesJar()
-  toolchain { languageVersion = JavaLanguageVersion.of(17) }
+  toolchain { languageVersion = JavaLanguageVersion.of(8) }
 }
 
 val testJarClasspath = configurations.create("testJarClasspath")
