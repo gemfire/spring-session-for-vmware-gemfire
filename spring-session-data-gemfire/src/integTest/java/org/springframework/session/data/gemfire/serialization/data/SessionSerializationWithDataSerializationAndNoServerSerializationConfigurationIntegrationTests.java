@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 Broadcom. All rights reserved.
+ * Copyright 2022-2026 Broadcom. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 package org.springframework.session.data.gemfire.serialization.data;
@@ -135,6 +135,54 @@ public class SessionSerializationWithDataSerializationAndNoServerSerializationCo
 	)
 	static class ClientTestConfiguration { }
 	
-  record User(Integer id, String name) implements Serializable {
+	static final class User implements Serializable {
+
+		private final Integer id;
+		private final String name;
+
+		User(Integer id, String name) {
+			this.id = id;
+			this.name = name;
+		}
+
+		Integer id() {
+			return this.id;
+		}
+
+		String name() {
+			return this.name;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+
+			if (this == obj) {
+				return true;
+			}
+
+			if (!(obj instanceof User)) {
+				return false;
+			}
+
+			User that = (User) obj;
+
+			return (this.id == null ? that.id == null : this.id.equals(that.id))
+				&& (this.name == null ? that.name == null : this.name.equals(that.name));
+		}
+
+		@Override
+		public int hashCode() {
+
+			int result = this.id == null ? 0 : this.id.hashCode();
+
+			result = 31 * result + (this.name == null ? 0 : this.name.hashCode());
+
+			return result;
+		}
+
+		@Override
+		public String toString() {
+			return "User[id=" + this.id + ", name=" + this.name + "]";
+		}
 	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 Broadcom. All rights reserved.
+ * Copyright 2022-2026 Broadcom. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 package org.springframework.session.data.gemfire.config.annotation.web.http.support;
@@ -55,7 +55,7 @@ public class SessionCacheTypeAwareRegionFactoryBeanTests {
 	private void testAfterPropertiesSetCreatesCorrectRegionForGemFireCacheType(ClientCache expectedCache,
 			Region<Object, Session> expectedRegion) throws Exception {
 
-		this.regionFactoryBean = new SessionCacheTypeAwareRegionFactoryBean<>() {
+		this.regionFactoryBean = new SessionCacheTypeAwareRegionFactoryBean<Object, Session>() {
 
       @Override
       protected Region<Object, Session> newClientRegion(ClientCache gemfireCache, String name) {

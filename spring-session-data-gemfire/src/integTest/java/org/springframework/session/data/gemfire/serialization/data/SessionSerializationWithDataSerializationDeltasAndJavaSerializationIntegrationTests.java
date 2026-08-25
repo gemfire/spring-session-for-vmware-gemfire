@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 Broadcom. All rights reserved.
+ * Copyright 2022-2026 Broadcom. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  */
 package org.springframework.session.data.gemfire.serialization.data;
@@ -136,7 +136,43 @@ public class SessionSerializationWithDataSerializationDeltasAndJavaSerialization
 	)
 	static class GemFireClientConfiguration { }
 
-	record Customer(String name) implements Serializable {
+	static final class Customer implements Serializable {
+
+		private final String name;
+
+		Customer(String name) {
+			this.name = name;
+		}
+
+		String name() {
+			return this.name;
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+
+			if (this == obj) {
+				return true;
+			}
+
+			if (!(obj instanceof Customer)) {
+				return false;
+			}
+
+			Customer that = (Customer) obj;
+
+			return this.name == null ? that.name == null : this.name.equals(that.name);
+		}
+
+		@Override
+		public int hashCode() {
+			return this.name == null ? 0 : this.name.hashCode();
+		}
+
+		@Override
+		public String toString() {
+			return "Customer[name=" + this.name + "]";
+		}
 
 		/*
 		// Uncomment this method to see exactly how/where GemFire tries to deserialize the Customer object
