@@ -31,7 +31,7 @@ allprojects {
 java {
   withJavadocJar()
   withSourcesJar()
-  toolchain { languageVersion = JavaLanguageVersion.of(17) }
+  toolchain { languageVersion = JavaLanguageVersion.of(8) }
 }
 
 versionCatalogUpdate {
