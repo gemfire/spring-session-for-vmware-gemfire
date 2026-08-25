@@ -5,7 +5,7 @@
 package org.springframework.session.data.gemfire.config.annotation.web.http;
 
 import static org.springframework.data.gemfire.util.RuntimeExceptionFactory.newIllegalArgumentException;
-import jakarta.annotation.PostConstruct;
+import javax.annotation.PostConstruct;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.time.Duration;
@@ -77,7 +77,7 @@ import org.springframework.util.StringUtils;
 /**
  * The {@link GemFireHttpSessionConfiguration} class is a Spring {@link Configuration @Configuration} class
  * used to configure and initialize Pivotal GemFire/Apache Geode as a clustered, distributed and replicated
- * {@link jakarta.servlet.http.HttpSession} provider implementation in Spring {@link Session}.
+ * {@link javax.servlet.http.HttpSession} provider implementation in Spring {@link Session}.
  *
  * @author John Blum
  * @see Duration

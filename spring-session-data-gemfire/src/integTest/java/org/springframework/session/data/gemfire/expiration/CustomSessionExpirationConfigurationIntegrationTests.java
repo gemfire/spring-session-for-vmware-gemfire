@@ -6,7 +6,7 @@ package org.springframework.session.data.gemfire.expiration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import com.vmware.gemfire.testcontainers.GemFireCluster;
-import jakarta.annotation.Resource;
+import javax.annotation.Resource;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.time.Duration;

@@ -16,7 +16,7 @@ import java.io.IOException;
 import java.time.Duration;
 
 import com.vmware.gemfire.testcontainers.GemFireCluster;
-import jakarta.annotation.Resource;
+import javax.annotation.Resource;
 
 import org.junit.After;
 import org.junit.AfterClass;

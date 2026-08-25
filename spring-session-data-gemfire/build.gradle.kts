@@ -79,7 +79,7 @@ dependencies {
   implementation("org.springframework.security:spring-security-core")
   implementation("org.springframework.security:spring-security-web")
   implementation(libs.spring.tx)
-  implementation(libs.jakarta.annotation.api)
+  implementation(libs.javax.annotation.api)
 
   compileOnly(libs.bundles.gemfire.dependencies)
 

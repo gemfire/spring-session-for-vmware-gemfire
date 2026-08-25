@@ -10,7 +10,7 @@ import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.Optional;
 
-import jakarta.annotation.Resource;
+import javax.annotation.Resource;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

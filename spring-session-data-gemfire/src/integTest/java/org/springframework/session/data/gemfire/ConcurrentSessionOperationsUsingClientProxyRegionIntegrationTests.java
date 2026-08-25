@@ -4,17 +4,13 @@
  */
 package org.springframework.session.data.gemfire;
 
-import java.io.IOException;
-
 import com.vmware.gemfire.testcontainers.GemFireCluster;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.runner.RunWith;
-
 import org.apache.geode.cache.Region;
 import org.apache.geode.cache.client.ClientCache;
 import org.apache.geode.cache.client.ClientRegionShortcut;
-
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.runner.RunWith;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.data.gemfire.config.annotation.ClientCacheApplication;
 import org.springframework.session.Session;
@@ -22,6 +18,8 @@ import org.springframework.session.data.gemfire.config.annotation.web.http.Enabl
 import org.springframework.session.data.gemfire.config.annotation.web.http.GemFireHttpSessionConfiguration;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringRunner;
+
+import java.io.IOException;
 
 /**
  * Integration Tests testing the concurrent access of a {@link Session} stored in an Apache Geode
@@ -41,35 +39,39 @@ import org.springframework.test.context.junit4.SpringRunner;
  */
 @RunWith(SpringRunner.class)
 @ContextConfiguration(
-	classes = ConcurrentSessionOperationsUsingClientProxyRegionIntegrationTests.GemFireClientConfiguration.class
+    classes = ConcurrentSessionOperationsUsingClientProxyRegionIntegrationTests.GemFireClientConfiguration.class
 )
 public class ConcurrentSessionOperationsUsingClientProxyRegionIntegrationTests
-		extends AbstractConcurrentSessionOperationsIntegrationTests {
+    extends AbstractConcurrentSessionOperationsIntegrationTests {
 
-	private static GemFireCluster gemFireCluster;
+  private static GemFireCluster gemFireCluster;
 
-	@BeforeClass
-	public static void startGemFireServer() throws IOException {
-		gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
-				.withCacheXml(GemFireCluster.ALL_GLOB, "/session-serializer-cache.xml")
-				.withClasspath(GemFireCluster.ALL_GLOB, System.getProperty("TEST_JAR_PATH"))
+  @BeforeClass
+  public static void startGemFireServer() throws IOException {
+    gemFireCluster = new GemFireCluster(System.getProperty("spring.test.gemfire.docker.image"), 1, 1)
+        .withCacheXml(GemFireCluster.ALL_GLOB, "/session-serializer-cache.xml")
+        .withClasspath(GemFireCluster.ALL_GLOB, System.getProperty("TEST_JAR_PATH"))
+        .withPreStart(GemFireCluster.SERVER_GLOB, container ->
+            container.withStartupAttempts(3)
+        )
 				.withGfsh(false, "create region --type=PARTITION --name=ClusteredSpringSessions");
 
-		gemFireCluster.acceptLicense().start();
+    gemFireCluster.acceptLicense().start();
 
-		System.setProperty("spring.data.gemfire.pool.locators", String.format("localhost[%d]", gemFireCluster.getLocatorPort()));
-	}
+    System.setProperty("spring.data.gemfire.pool.locators", String.format("localhost[%d]", gemFireCluster.getLocatorPort()));
+  }
 
-	@AfterClass
-	public static void teardown() {
-		gemFireCluster.close();
-	}
+  @AfterClass
+  public static void teardown() {
+    gemFireCluster.close();
+  }
 
-	@ClientCacheApplication(subscriptionEnabled = true)
-	@EnableGemFireHttpSession(
-		clientRegionShortcut = ClientRegionShortcut.PROXY,
-		poolName = "DEFAULT",
-		sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME
-	)
-	static class GemFireClientConfiguration { }
+  @ClientCacheApplication(subscriptionEnabled = true)
+  @EnableGemFireHttpSession(
+      clientRegionShortcut = ClientRegionShortcut.PROXY,
+      poolName = "DEFAULT",
+      sessionSerializerBeanName = GemFireHttpSessionConfiguration.SESSION_DATA_SERIALIZER_BEAN_NAME
+  )
+  static class GemFireClientConfiguration {
+  }
 }
