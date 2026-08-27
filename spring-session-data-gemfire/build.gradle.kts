@@ -114,7 +114,7 @@ dependencies {
   "integTestImplementation"(libs.gemfire.testcontainers)
 
   testJarClasspath(libs.spring.session.core)
-  testJarClasspath(libs.spring.security.bom)
+  testJarClasspath(platform(libs.spring.security.bom))
   testJarClasspath("org.springframework.security:spring-security-core")
   testJarClasspath(libs.spring.data.gemfire) {
     exclude(group = "org.bouncycastle", module = "bcprov-jdk18on")
