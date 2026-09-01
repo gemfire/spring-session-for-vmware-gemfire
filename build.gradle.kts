@@ -4,6 +4,8 @@
  */
 
 import nl.littlerobots.vcu.plugin.versionSelector
+import java.net.HttpURLConnection
+import java.net.URI
 
 plugins {
   id("java")
@@ -53,9 +55,41 @@ versionCatalogUpdate {
   versionSelector {
     val allowMajor = project.hasProperty("updateMajor")
     val allowMinor = project.hasProperty("updateMinor")
-    isAllowedUpdate(it.candidate.version, it.currentVersion, allowMajor, allowMinor)
+    val candidate = it.candidate
+    if (!isAllowedUpdate(candidate.version, it.currentVersion, allowMajor, allowMinor)) {
+      false
+    } else if (candidate.group == "com.vmware.gemfire") {
+      // com.vmware.gemfire artifacts are expected to come from our commercial repos;
+      // no public-availability check applies to them.
+      true
+    } else {
+      // Our internal repos mirror/aggregate several other Broadcom-internal repos
+      // (e.g. commercially patched Spring builds) alongside com.vmware.gemfire
+      // artifacts, so version listings for non-gemfire groups can include
+      // commercial-only versions (e.g. org.springframework:spring-tx:5.3.50) that
+      // don't exist publicly. Since every non-gemfire library we track here is meant
+      // to stay on publicly available versions, reject any candidate that doesn't
+      // actually resolve from Maven Central.
+      isPubliclyAvailable(candidate.group, candidate.module, candidate.version)
+    }
   }
 
+}
+
+fun isPubliclyAvailable(group: String, module: String, version: String): Boolean {
+  val path = group.replace(".", "/")
+  val url = "https://repo.maven.apache.org/maven2/$path/$module/$version/$module-$version.pom"
+  return try {
+    val connection = URI(url).toURL().openConnection() as HttpURLConnection
+    connection.requestMethod = "HEAD"
+    connection.connectTimeout = 5000
+    connection.readTimeout = 5000
+    val code = connection.responseCode
+    connection.disconnect()
+    code == 200
+  } catch (e: java.io.IOException) {
+    false
+  }
 }
 
 fun isAllowedUpdate(
