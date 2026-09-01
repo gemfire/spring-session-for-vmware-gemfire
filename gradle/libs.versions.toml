@@ -15,10 +15,10 @@ multithreadedtcVersion = "1.01"
 nebulaFacetVersion = "13.1.2"
 slf4jVersion = "2.0.18"
 springDataGemFireVersion = "2.0.1"
-springSecurityVersion = "6.5.12"
-springSessionVersion = "3.5.8"
+springSecurityVersion = "6.5.11"
+springSessionVersion = "3.5.7"
 springShellVersion = "1.2.0.RELEASE"
-springVersion = "6.2.20"
+springVersion = "6.2.19"
 
 [libraries]
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertjVersion" }
